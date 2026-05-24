@@ -5,5 +5,4 @@ memory/long_term.json
 start.bat
 remote_client.py
 remote_server.py
-web_ui/
 *.egg-info/
