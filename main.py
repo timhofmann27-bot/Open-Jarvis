@@ -35,6 +35,7 @@ from actions.computer_control  import computer_control
 from actions.game_updater      import game_updater
 from actions.smart_home        import smart_home
 from actions.ytmusic           import ytmusic_action
+from actions.obsidian_control  import obsidian_action
 from core.plugin_loader       import load_plugins
 from core.notifier            import ProactiveNotifier
 
@@ -419,6 +420,24 @@ TOOL_DECLARATIONS = [
             "properties": {
                 "action": {"type": "STRING", "description": "play | search | pause | resume | next | previous | volume | open"},
                 "query":  {"type": "STRING", "description": "Songtitel oder Suchbegriff fuer play/search, oder Lautstaerke 0-100 fuer volume"},
+            },
+            "required": ["action"]
+        }
+    },
+    {
+        "name": "obsidian",
+        "description": (
+            "Steuert Obsidian. Aktionen: open (Obsidian oeffnen), search (Notizen durchsuchen), "
+            "note/create (neue Notiz), append (anhaengen), read (lesen), list (letzte 10). "
+            "Immer fuer Notizen und Obsidian nutzen."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "action":  {"type": "STRING", "description": "open | search | note | create | write | append | read | list"},
+                "query":   {"type": "STRING", "description": "Suchbegriff fuer search"},
+                "note":    {"type": "STRING", "description": "Notizname (ohne .md)"},
+                "content": {"type": "STRING", "description": "Inhalt fuer create/append"},
             },
             "required": ["action"]
         }
@@ -827,6 +846,10 @@ class JarvisLive:
 
             elif name == "ytmusic":
                 r = await loop.run_in_executor(None, lambda: ytmusic_action(parameters=args, player=self.ui, speak=self.speak))
+                result = r or "Done."
+
+            elif name == "obsidian":
+                r = await loop.run_in_executor(None, lambda: obsidian_action(parameters=args, player=self.ui, speak=self.speak))
                 result = r or "Done."
 
             elif name == "game_updater":
