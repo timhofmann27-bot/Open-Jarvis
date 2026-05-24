@@ -35,6 +35,7 @@ from actions.computer_control  import computer_control
 from actions.game_updater      import game_updater
 from actions.smart_home        import smart_home
 from core.plugin_loader       import load_plugins
+from core.notifier            import ProactiveNotifier
 
 
 def get_base_dir():
@@ -619,6 +620,9 @@ class JarvisLive:
                 _wtime.sleep(1.0)
 
         threading.Thread(target=_wake_manager, daemon=True).start()
+
+        self._notifier = ProactiveNotifier(speak_fn=self.speak, write_log_fn=self.ui.write_log)
+        self._notifier.start()
 
     def _ensure_remote_server(self):
         if self._remote_server:

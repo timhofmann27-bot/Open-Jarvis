@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "weather_interval_min": 120,
+  "news_interval_min": 180,
+  "greeting_enabled": true,
+  "weather_city": "Berlin"
+}
