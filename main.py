@@ -33,6 +33,7 @@ from actions.tv_control        import connect_tv
 from actions.web_search        import web_search as web_search_action
 from actions.computer_control  import computer_control
 from actions.game_updater      import game_updater
+from actions.smart_home        import smart_home
 
 
 def get_base_dir():
@@ -404,6 +405,26 @@ TOOL_DECLARATIONS = [
         }
     },
     {
+        "name": "smart_home",
+        "description": (
+            "Controls smart home devices. Supports: "
+            "Philips Hue (lights on/off/brightness/color), "
+            "Shelly (plugs/switches on/off/status), "
+            "Home Assistant (any entity on/off/toggle/list). "
+            "Always call this tool for smart home commands."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "platform": {"type": "STRING", "description": "hue | shelly | homeassistant"},
+                "device":   {"type": "STRING", "description": "Device name (hue/shelly) or entity_id (homeassistant)"},
+                "action":   {"type": "STRING", "description": "on | off | toggle | brightness | color | status | list | discover"},
+                "value":    {"type": "STRING", "description": "Brightness 1-254 or color name for hue"},
+            },
+            "required": ["platform", "action"]
+        }
+    },
+    {
     "name": "file_processor",
     "description": (
         "Processes any file that the user has uploaded or dropped onto the interface. "
@@ -768,6 +789,10 @@ class JarvisLive:
 
             elif name == "flight_finder":
                 r = await loop.run_in_executor(None, lambda: flight_finder(parameters=args, player=self.ui))
+                result = r or "Done."
+
+            elif name == "smart_home":
+                r = await loop.run_in_executor(None, lambda: smart_home(parameters=args, player=self.ui, speak=self.speak))
                 result = r or "Done."
 
             elif name == "connect_tv":
