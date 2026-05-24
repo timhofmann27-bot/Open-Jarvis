@@ -267,6 +267,7 @@ class HudCanvas(QWidget):
         self._blink_tick = 0
         self._particles: list[list[float]] = []
         self._face_px: QPixmap | None = None
+        self._data_streams: list[dict] = []
         self._load_face(face_path)
 
         self._tmr = QTimer(self)
@@ -296,7 +297,7 @@ class HudCanvas(QWidget):
         if now - self._last_t > (0.12 if self.speaking else 0.5):
             if self.speaking:
                 self._tgt_scale = random.uniform(1.06, 1.14)
-                self._tgt_halo  = random.uniform(145, 190)
+                self._tgt_halo  = random.uniform(145, 220)
             elif self.muted:
                 self._tgt_scale = random.uniform(0.998, 1.002)
                 self._tgt_halo  = random.uniform(15, 28)
@@ -318,24 +319,36 @@ class HudCanvas(QWidget):
 
         fw  = min(self.width(), self.height())
         lim = fw * 0.74
-        spd = 4.2 if self.speaking else 2.0
+        spd = 5.0 if self.speaking else 2.0
         self._pulses = [r + spd for r in self._pulses if r + spd < lim]
-        if len(self._pulses) < 3 and random.random() < (0.07 if self.speaking else 0.025):
+        if len(self._pulses) < 4 and random.random() < (0.12 if self.speaking else 0.035):
             self._pulses.append(0.0)
 
-        if self.speaking and random.random() < 0.28:
-            cx, cy = self.width() / 2, self.height() / 2
+        cx, cy = self.width() / 2, self.height() / 2
+        emit_count = 3 if self.speaking else (1 if random.random() < 0.4 else 0)
+        for _ in range(emit_count):
             ang = random.uniform(0, 2 * math.pi)
-            r_s = fw * 0.28
+            spd = random.uniform(1.2, 3.0) if self.speaking else random.uniform(0.6, 1.8)
             self._particles.append([
-                cx + math.cos(ang) * r_s, cy + math.sin(ang) * r_s,
-                math.cos(ang) * random.uniform(0.9, 2.4),
-                math.sin(ang) * random.uniform(0.9, 2.4) - 0.4, 1.0,
+                cx + math.cos(ang) * fw * 0.22, cy + math.sin(ang) * fw * 0.22,
+                math.cos(ang) * spd, math.sin(ang) * spd, 1.0,
+                random.choice([C.PRI, C.ACC2, C.GREEN]),
             ])
         self._particles = [
-            [p[0]+p[2], p[1]+p[3], p[2]*0.97, p[3]*0.97, p[4]-0.028]
+            [p[0]+p[2], p[1]+p[3], p[2]*0.97, p[3]*0.97, p[4]-0.018, p[5]]
             for p in self._particles if p[4] > 0
         ]
+
+        if random.random() < 0.08:
+            self._data_streams.append({
+                "x": random.uniform(0, self.width()),
+                "y": -20, "speed": random.uniform(2, 5),
+                "len": random.randint(8, 20),
+                "chars": [random.choice("0123456789ABCDEF") for _ in range(20)],
+            })
+        self._data_streams = [s for s in self._data_streams if s["y"] < self.height() + 20]
+        for s in self._data_streams:
+            s["y"] += s["speed"]
 
         self._blink_tick += 1
         if self._blink_tick >= 38:
@@ -351,89 +364,112 @@ class HudCanvas(QWidget):
         W, H = self.width(), self.height()
         cx, cy = W / 2, H / 2
         fw = min(W, H)
+        base_col = C.MUTED_C if self.muted else C.PRI
+        gold_col = C.ACC2
 
-        # grid dots
         p.setPen(QPen(qcol(C.PRI_GHO), 1))
-        for x in range(0, W, 48):
-            for y in range(0, H, 48):
+        for x in range(0, W, 36):
+            for y in range(0, H, 36):
                 p.drawPoint(x, y)
 
-        r_face = fw * 0.31
+        for stream in self._data_streams:
+            sx, sy, slen, chars = stream["x"], stream["y"], stream["len"], stream["chars"]
+            p.setFont(QFont("Courier New", 9))
+            for i in range(slen):
+                yi = sy - i * 12
+                if yi < 0 or yi > H:
+                    continue
+                fade = max(0, min(200, int(180 * (1 - i / slen))))
+                col = qcol(C.GREEN if i < 3 else C.GREEN_D, fade // 2)
+                p.setPen(QPen(col, 1))
+                p.drawText(QRectF(sx, yi, 20, 12), chars[i % len(chars)])
 
-        # halo glow
-        for i in range(10):
-            r   = r_face * (1.8 - i * 0.08)
-            frc = 1.0 - i / 10
-            a   = max(0, min(255, int(self._halo * 0.085 * frc)))
-            col = qcol(C.MUTED_C if self.muted else C.PRI, a)
-            p.setPen(QPen(col, 1.5)); p.setBrush(Qt.BrushStyle.NoBrush)
+        r_face = fw * 0.31
+        for i in range(12):
+            r = r_face * (2.0 - i * 0.07)
+            frc = 1.0 - i / 12
+            a = max(0, min(255, int(self._halo * 0.07 * frc)))
+            hue_offset = i * 0.02
+            col = qcol(C.ACC2 if self.speaking and i % 2 == 0 else base_col, a)
+            p.setPen(QPen(col, 1.8 if i < 3 else 1.0)); p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawEllipse(QRectF(cx - r, cy - r, r * 2, r * 2))
 
-        # pulse rings
         for pr in self._pulses:
-            a   = max(0, int(230 * (1.0 - pr / (fw * 0.74))))
-            col = qcol(C.MUTED_C if self.muted else C.PRI, a)
-            p.setPen(QPen(col, 1.5)); p.setBrush(Qt.BrushStyle.NoBrush)
+            a = max(0, int(200 * (1.0 - pr / (fw * 0.74))))
+            col = qcol(gold_col if self.speaking else base_col, a)
+            p.setPen(QPen(col, 2.0)); p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawEllipse(QRectF(cx - pr, cy - pr, pr * 2, pr * 2))
 
-        # spinning arc rings
         for idx, (r_frac, w_r, arc_l, gap) in enumerate(
-            [(0.48, 3, 115, 78), (0.40, 2, 78, 55), (0.32, 1, 56, 40)]
+            [(0.52, 3, 130, 85), (0.42, 2, 90, 60), (0.34, 1.5, 65, 45)]
         ):
             ring_r = fw * r_frac
-            base   = self._rings[idx]
-            a_val  = max(0, min(255, int(self._halo * (1.0 - idx * 0.18))))
-            col    = qcol(C.MUTED_C if self.muted else C.PRI, a_val)
+            base = self._rings[idx]
+            a_val = max(0, min(255, int(self._halo * (1.0 - idx * 0.18))))
+            col = qcol(C.ACC2 if idx == 0 and self.speaking else base_col, a_val)
             p.setPen(QPen(col, w_r)); p.setBrush(Qt.BrushStyle.NoBrush)
             angle = base
-            rect  = QRectF(cx - ring_r, cy - ring_r, ring_r * 2, ring_r * 2)
+            rect = QRectF(cx - ring_r, cy - ring_r, ring_r * 2, ring_r * 2)
             while angle < base + 360:
                 p.drawArc(rect, int(angle * 16), int(arc_l * 16))
                 angle += arc_l + gap
 
-        # scanners
-        sr = fw * 0.50
+        sr = fw * 0.52
         sa = min(255, int(self._halo * 1.5))
-        ex = 75 if self.speaking else 44
-        p.setPen(QPen(qcol(C.MUTED_C if self.muted else C.PRI, sa), 2.5))
+        ex = 85 if self.speaking else 50
+        p.setPen(QPen(qcol(base_col, sa), 2.5))
         p.setBrush(Qt.BrushStyle.NoBrush)
         srect = QRectF(cx - sr, cy - sr, sr * 2, sr * 2)
         p.drawArc(srect, int(self._scan * 16), int(ex * 16))
-        p.setPen(QPen(qcol(C.ACC, sa // 2), 1.5))
+        p.setPen(QPen(qcol(C.ACC2, sa // 2), 1.5))
         p.drawArc(srect, int(self._scan2 * 16), int(ex * 16))
 
-        # tick marks
-        t_out, t_in = fw * 0.497, fw * 0.474
-        p.setPen(QPen(qcol(C.PRI, 140), 1))
-        for deg in range(0, 360, 10):
+        t_out, t_in = fw * 0.52, fw * 0.49
+        p.setPen(QPen(qcol(base_col, 160), 1))
+        for deg in range(0, 360, 5):
             rad = math.radians(deg)
-            inn = t_in if deg % 30 == 0 else t_in + 6
+            inn = t_in if deg % 30 == 0 else t_in + 5
             p.drawLine(
                 QPointF(cx + t_out * math.cos(rad), cy - t_out * math.sin(rad)),
-                QPointF(cx + inn  * math.cos(rad), cy - inn  * math.sin(rad)),
+                QPointF(cx + inn * math.cos(rad), cy - inn * math.sin(rad)),
             )
 
-        # crosshair
-        ch_r, gap_h = fw * 0.51, fw * 0.16
-        p.setPen(QPen(qcol(C.PRI, int(self._halo * 0.5)), 1))
+        ch_r, gap_h = fw * 0.53, fw * 0.18
+        p.setPen(QPen(qcol(base_col, int(self._halo * 0.5)), 1))
         p.drawLine(QPointF(cx - ch_r, cy), QPointF(cx - gap_h, cy))
         p.drawLine(QPointF(cx + gap_h, cy), QPointF(cx + ch_r, cy))
         p.drawLine(QPointF(cx, cy - ch_r), QPointF(cx, cy - gap_h))
         p.drawLine(QPointF(cx, cy + gap_h), QPointF(cx, cy + ch_r))
 
-        # corner brackets
-        bl = 24
-        bc = qcol(C.PRI, 210)
-        hl, hr = cx - fw // 2, cx + fw // 2
-        ht, hb = cy - fw // 2, cy + fw // 2
-        p.setPen(QPen(bc, 2))
+        bl = 28
+        bc = qcol(C.ACC2 if self.speaking else base_col, 220)
+        margin = 20
+        hl, hr = margin, W - margin
+        ht, hb = margin, H - margin
+        p.setPen(QPen(bc, 2.5))
         for bx, by, dx, dy in [(hl,ht,1,1),(hr,ht,-1,1),(hl,hb,1,-1),(hr,hb,-1,-1)]:
             p.drawLine(QPointF(bx, by), QPointF(bx + dx * bl, by))
             p.drawLine(QPointF(bx, by), QPointF(bx, by + dy * bl))
 
-        # face
+        p.setPen(QPen(qcol(C.ACC2, 120), 0.5))
+        p.drawLine(hl + bl, ht, hr - bl, ht)
+        p.drawLine(hl + bl, hb, hr - bl, hb)
+        p.drawLine(hl, ht + bl, hl, hb - bl)
+        p.drawLine(hr, ht + bl, hr, hb - bl)
+
+        labels = [
+            (hl + 6, ht - 16, "SYS:ONLINE", C.GREEN),
+            (hr - 90, ht - 16, "J.A.R.V.I.S", C.ACC2),
+            (hl + 6, hb + 6, f"VER 39.OR", C.PRI_DIM),
+            (hr - 80, hb + 6, f"UPTIME {self._tick//60}m", C.PRI_DIM),
+        ]
+        p.setFont(QFont("Courier New", 8, QFont.Weight.Bold))
+        for lx, ly, lt, lc in labels:
+            p.setPen(QPen(qcol(lc, 180), 1))
+            p.drawText(QRectF(lx, ly, 120, 14), Qt.AlignmentFlag.AlignLeft, lt)
+
         if self._face_px:
-            fsz    = int(fw * 0.62 * self._scale)
+            fsz = int(fw * 0.58 * self._scale)
             scaled = self._face_px.scaled(
                 fsz, fsz,
                 Qt.AspectRatioMode.KeepAspectRatio,
@@ -442,63 +478,83 @@ class HudCanvas(QWidget):
             p.drawPixmap(int(cx - fsz / 2), int(cy - fsz / 2), scaled)
         else:
             orb_r = int(fw * 0.27 * self._scale)
-            oc    = (200, 0, 50) if self.muted else (0, 60, 110)
+            oc = (200, 0, 50) if self.muted else (0, 60, 110)
             for i in range(8, 0, -1):
-                r2  = int(orb_r * i / 8)
+                r2 = int(orb_r * i / 8)
                 frc = i / 8
-                a   = max(0, min(255, int(self._halo * 1.1 * frc)))
+                a = max(0, min(255, int(self._halo * 1.1 * frc)))
                 p.setBrush(QBrush(QColor(int(oc[0]*frc), int(oc[1]*frc), int(oc[2]*frc), a)))
                 p.setPen(Qt.PenStyle.NoPen)
                 p.drawEllipse(QRectF(cx - r2, cy - r2, r2 * 2, r2 * 2))
-            p.setPen(QPen(qcol(C.PRI, min(255, int(self._halo * 2))), 1))
-            p.setFont(QFont("Courier New", 13, QFont.Weight.Bold))
+            p.setPen(QPen(qcol(base_col, min(255, int(self._halo * 2))), 1))
+            p.setFont(QFont("Courier New", 14, QFont.Weight.Bold))
             p.drawText(QRectF(cx - 80, cy - 14, 160, 28),
                        Qt.AlignmentFlag.AlignCenter, "J.A.R.V.I.S")
 
-        # particles
+        inner_r = fw * 0.15
+        glow = QRadialGradient(QPointF(cx, cy), inner_r)
+        if self.speaking:
+            glow.setColorAt(0, qcol(C.ACC2, 60))
+            glow.setColorAt(0.5, qcol(C.PRI, 20))
+        elif self.muted:
+            glow.setColorAt(0, qcol(C.MUTED_C, 30))
+            glow.setColorAt(0.5, qcol(C.BG, 0))
+        else:
+            glow.setColorAt(0, qcol(C.PRI, 40))
+            glow.setColorAt(0.5, qcol(C.BG, 0))
+        p.setBrush(QBrush(glow))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawEllipse(QRectF(cx - inner_r, cy - inner_r, inner_r * 2, inner_r * 2))
+
         for pt in self._particles:
             a = max(0, min(255, int(pt[4] * 255)))
+            col = pt[5] if len(pt) > 5 else C.PRI
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QBrush(qcol(C.PRI, a)))
-            p.drawEllipse(QPointF(pt[0], pt[1]), 2.5, 2.5)
+            p.setBrush(QBrush(qcol(col, a)))
+            size = 3.0 if self.speaking else 2.0
+            p.drawEllipse(QPointF(pt[0], pt[1]), size, size)
 
-        # status text
+        scan_alpha = int(18 + 10 * math.sin(self._tick * 0.05))
+        if not self.muted:
+            p.fillRect(QRectF(0, 0, W, H), QColor(0, 180, 255, scan_alpha))
+            for l in range(0, H, 3):
+                p.fillRect(QRectF(0, l, W, 1), QColor(0, 0, 0, 20))
+
         sy = cy + fw * 0.40
         if self.muted:
-            txt, col = "⊘  MUTED",     qcol(C.MUTED_C)
+            txt, tcol = "MUTED", C.MUTED_C
         elif self.speaking:
-            txt, col = "●  SPEAKING",  qcol(C.ACC)
+            txt, tcol = "SPEAKING", C.ACC2
         elif self.state == "THINKING":
-            sym = "◈" if self._blink else "◇"
-            txt, col = f"{sym}  THINKING",   qcol(C.ACC2)
+            sym = "\u25c8" if self._blink else "\u25c7"
+            txt, tcol = f"{sym} THINKING", C.ACC2
         elif self.state == "PROCESSING":
-            sym = "▷" if self._blink else "▶"
-            txt, col = f"{sym}  PROCESSING", qcol(C.ACC2)
+            sym = "\u25b7" if self._blink else "\u25b6"
+            txt, tcol = f"{sym} PROCESSING", C.ACC2
         elif self.state == "LISTENING":
-            sym = "●" if self._blink else "○"
-            txt, col = f"{sym}  LISTENING",  qcol(C.GREEN)
+            sym = "\u25cf" if self._blink else "\u25cb"
+            txt, tcol = f"{sym} LISTENING", C.GREEN
         else:
-            sym = "●" if self._blink else "○"
-            txt, col = f"{sym}  {self.state}", qcol(C.PRI)
+            sym = "\u25cf" if self._blink else "\u25cb"
+            txt, tcol = f"{sym} {self.state}", base_col
 
-        p.setPen(QPen(col, 1))
+        p.setPen(QPen(qcol(tcol, 220), 1))
         p.setFont(QFont("Courier New", 11, QFont.Weight.Bold))
         p.drawText(QRectF(0, sy, W, 26), Qt.AlignmentFlag.AlignCenter, txt)
 
-        # waveform
         wy = sy + 30
-        N, bw = 36, 8
+        N, bw = 48, 6
         wx0 = (W - N * bw) / 2
         for i in range(N):
             if self.muted:
                 hgt, cl = 2, qcol(C.MUTED_C)
             elif self.speaking:
-                hgt = random.randint(3, 20)
-                cl  = qcol(C.PRI) if hgt > 12 else qcol(C.PRI_DIM)
+                hgt = random.randint(4, 24)
+                cl = qcol(C.ACC2) if hgt > 16 else qcol(C.PRI)
             else:
-                hgt = int(3 + 2 * math.sin(self._tick * 0.09 + i * 0.6))
-                cl  = qcol(C.BORDER_B)
-            p.fillRect(QRectF(wx0 + i * bw, wy + 20 - hgt, bw - 1, hgt), cl)
+                hgt = int(3 + 3 * math.sin(self._tick * 0.08 + i * 0.5))
+                cl = qcol(C.BORDER_B)
+            p.fillRect(QRectF(wx0 + i * bw, wy + 24 - hgt, bw - 1, hgt), cl)
 
 class MetricBar(QWidget):
 
