@@ -673,7 +673,28 @@ class JarvisLive:
         return self._remote_server
 
     def _on_text_command(self, text: str):
+        stripped = text.strip()
+        if stripped.startswith("/think ") or stripped.startswith("/local "):
+            query = stripped.split(" ", 1)[1] if " " in stripped else ""
+            if not query:
+                self.ui.write_log("[Local LLM] Bitte eine Frage angeben.")
+                return
+            self.ui.write_log(f"[Local LLM] Denke nach...")
+            self.ui.set_state("THINKING")
+            def _run_local():
+                try:
+                    from core.local_llm import ask
+                    result = ask(query)
+                    self.ui.write_log(f"[Local LLM] {result}")
+                except Exception as e:
+                    self.ui.write_log(f"[Local LLM] Fehler: {e}")
+                finally:
+                    if not self.ui.muted:
+                        self.ui.set_state("LISTENING")
+            threading.Thread(target=_run_local, daemon=True).start()
+            return
         if not self._loop or not self.session:
+            self.ui.write_log("[JARVIS] Nicht verbunden. Nutze /think fuer lokales LLM.")
             return
         asyncio.run_coroutine_threadsafe(
             self.session.send_client_content(
