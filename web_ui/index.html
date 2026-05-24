@@ -2,150 +2,109 @@
 <html lang="de">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Jarvis Remote UI</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+  <title>Jarvis Mobile</title>
   <style>
-    body { margin:0; font-family:Inter,system-ui,sans-serif; background:#04111d; color:#e4f8ff; }
-    .page { max-width:980px; margin:0 auto; padding:20px; }
-    .hero { display:flex; flex-wrap:wrap; gap:16px; align-items:center; justify-content:space-between; }
-    h1 { margin:0; font-size:clamp(2rem,3vw,3rem); }
-    p { margin:12px 0; color:#99c8dd; }
-    .card { background:#081624; border:1px solid #0f2f45; border-radius:18px; padding:20px; box-shadow:0 20px 80px rgba(0,0,0,.25); }
-    label { display:block; font-size:.95rem; margin-bottom:6px; color:#8ab9d8; }
-    input, textarea, select { width:100%; background:#051022; border:1px solid #12446d; color:#e4f8ff; border-radius:12px; padding:12px 14px; font-size:1rem; }
-    textarea { min-height:150px; resize:vertical; }
-    .row { display:grid; gap:14px; grid-template-columns:1fr 1fr; }
-    .row.full { grid-template-columns:1fr; }
-    button { border:none; border-radius:12px; padding:14px 18px; font-weight:700; cursor:pointer; background:#00c4ff; color:#031121; transition:transform .14s ease, background .2s ease; }
-    button:hover { transform:translateY(-1px); background:#65e4ff; }
-    .actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:8px; }
-    .output { white-space:pre-wrap; background:#02111c; border:1px solid #0f2f45; padding:18px; border-radius:16px; min-height:220px; overflow:auto; font-family:Menlo,monospace; color:#d5f6ff; }
-    .status { font-size:.95rem; color:#9bd8ff; margin-bottom:10px; }
-    .footer { margin-top:18px; color:#93bddf; font-size:.95rem; }
-    .note { color:#6fc9b9; }
-    @media(max-width:780px){ .hero{flex-direction:column;align-items:flex-start;} .row{grid-template-columns:1fr;} }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:system-ui,-apple-system,sans-serif; background:#0a0e14; color:#e0e8f0; height:100dvh; display:flex; flex-direction:column; }
+    #header { background:#0f1a24; border-bottom:1px solid #1a3345; padding:12px 16px; display:flex; align-items:center; gap:10px; flex-shrink:0; }
+    #header h1 { font-size:1.1rem; font-weight:600; color:#00c8ff; flex:1; }
+    #status { font-size:.75rem; color:#6a8fa8; }
+    #chat { flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:8px; scroll-behavior:smooth; }
+    .msg { max-width:85%; padding:10px 14px; border-radius:16px; font-size:.95rem; line-height:1.4; word-wrap:break-word; animation:fadeIn .2s ease; }
+    .msg.user { align-self:flex-end; background:#003d5c; color:#e0f0ff; border-bottom-right-radius:4px; }
+    .msg.jarvis { align-self:flex-start; background:#101e2a; color:#d0e4f0; border-bottom-left-radius:4px; border:1px solid #1a3345; }
+    .msg.system { align-self:center; background:transparent; color:#5a7a8a; font-size:.8rem; padding:4px 10px; }
+    .msg pre { background:#0a141e; padding:8px; border-radius:8px; overflow-x:auto; font-size:.85rem; margin-top:6px; white-space:pre-wrap; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+    #inputbar { display:flex; gap:8px; padding:10px 12px; background:#0f1a24; border-top:1px solid #1a3345; flex-shrink:0; }
+    #inputbar input { flex:1; background:#071018; border:1px solid #1a3345; border-radius:24px; padding:10px 16px; font-size:.95rem; color:#e0e8f0; outline:none; }
+    #inputbar input:focus { border-color:#00c8ff; }
+    #inputbar button { background:#00c8ff; border:none; border-radius:24px; padding:10px 20px; font-weight:600; color:#021018; font-size:.9rem; cursor:pointer; }
+    #inputbar button:active { transform:scale(.96); }
+    .typing { align-self:flex-start; color:#5a8a9a; font-size:.8rem; padding:4px 14px; display:none; }
+    #bottom { flex-shrink:0; text-align:center; padding:6px; font-size:.7rem; color:#3a5a6a; }
+    #bottom a { color:#3a8aaa; text-decoration:none; }
   </style>
 </head>
 <body>
-  <div class="page">
-    <div class="hero">
-      <div>
-        <h1>Jarvis Remote UI</h1>
-        <p>Steuere Jarvis direkt aus dem Browser deines Android-Handys oder Google TV.</p>
-      </div>
-      <div class="status" id="status">Verbinde...</div>
-    </div>
-
-    <div class="card">
-      <div class="row full">
-        <div>
-          <label for="token">API Token (optional)</label>
-          <input id="token" placeholder="Wenn aktiviert, hier den Token eintragen" />
-        </div>
-      </div>
-
-      <div class="row full">
-        <div>
-          <label for="goal">Ziel / Befehl</label>
-          <textarea id="goal" placeholder="Schreibe hier, was Jarvis tun soll..."></textarea>
-        </div>
-      </div>
-
-      <div class="row">
-        <div>
-          <label for="tool">Werkzeug (optional)</label>
-          <input id="tool" placeholder="z. B. web_search, network_status" />
-        </div>
-        <div>
-          <label for="params">Tool-Parameter (JSON)</label>
-          <input id="params" placeholder='z. B. {"query":"Wetter Berlin"}' />
-        </div>
-      </div>
-
-      <div class="actions">
-        <button onclick="sendRequest('command')">Ausführen</button>
-        <button onclick="sendRequest('plan')">Plan anzeigen</button>
-        <button onclick="sendRequest('tool')">Tool ausführen</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="output" id="output">Ergebnis wird hier angezeigt...</div>
-    </div>
-
-    <div class="footer">
-      Öffne diese Seite in einem Browser auf deinem Handy oder Google TV. <span class="note">Tipp:</span> Nutze die IP deines Jarvis-PCs, z. B. <code>http://192.168.1.42:8080/</code><br />
-      Für TV-optimierte Ansicht: <code>http://192.168.1.42:8080/mirror</code>
-    </div>
+  <div id="header"><h1>Jarvis</h1><div id="status">getrennt</div></div>
+  <div id="chat"></div>
+  <div class="typing" id="typing">Jarvis denkt nach...</div>
+  <div id="inputbar">
+    <input id="input" type="text" placeholder="Nachricht eingeben..." autocomplete="off" />
+    <button id="send">Senden</button>
   </div>
-
+  <div id="bottom"><a href="#" onclick="showToken()">Token eingeben</a> &middot; <span id="ipinfo"></span></div>
   <script>
-    const statusEl = document.getElementById('status');
-    const outputEl = document.getElementById('output');
+    const $ = id => document.getElementById(id);
+    const chat = $('chat'), input = $('input'), statusEl = $('status'), typing = $('typing'), sendBtn = $('send');
+    let token = localStorage.getItem('jarvis_token') || '';
+    let lastMsg = '';
+
+    function addMsg(text, cls) {
+      const d = document.createElement('div');
+      d.className = 'msg ' + cls;
+      d.textContent = text;
+      chat.appendChild(d);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function addSystem(text) {
+      const d = document.createElement('div');
+      d.className = 'msg system';
+      d.textContent = text;
+      chat.appendChild(d);
+      chat.scrollTop = chat.scrollHeight;
+    }
 
     async function updateStatus() {
       try {
-        const res = await fetch('/api/status');
-        const data = await res.json();
-        if (res.ok) {
-          statusEl.textContent = `Verfügbar auf ${window.location.origin} · Auth ${data.auth_required ? 'Ja' : 'Nein'}`;
-        } else {
-          statusEl.textContent = `Fehler: ${data.error || res.statusText}`;
-        }
-      } catch (err) {
-        statusEl.textContent = 'Verbindung fehlgeschlagen';
-      }
+        const r = await fetch('/api/status');
+        if (r.ok) {
+          const d = await r.json();
+          statusEl.textContent = 'verbunden';
+          $('ipinfo').textContent = d.local_ip + ':' + d.port;
+        } else statusEl.textContent = 'fehler';
+      } catch { statusEl.textContent = 'offline'; }
     }
 
-    async function sendRequest(mode) {
-      const token = document.getElementById('token').value.trim();
-      const goal = document.getElementById('goal').value.trim();
-      const tool = document.getElementById('tool').value.trim();
-      const paramsText = document.getElementById('params').value.trim();
-      let payload = {};
-      if (token) payload.api_token = token;
-
-      if (mode === 'tool') {
-        if (!tool) {
-          outputEl.textContent = 'Bitte gib einen Tool-Namen an.';
-          return;
-        }
-        payload.tool = tool;
-        try {
-          payload.parameters = paramsText ? JSON.parse(paramsText) : {};
-        } catch (err) {
-          outputEl.textContent = 'Ungültiges JSON in Tool-Parametern.';
-          return;
-        }
-      } else {
-        if (!goal) {
-          outputEl.textContent = 'Bitte gib ein Ziel oder einen Befehl ein.';
-          return;
-        }
-        payload.goal = goal;
-      }
-
-      const endpoint = mode === 'plan' ? '/api/plan' : mode === 'tool' ? '/api/tool' : '/api/command';
-      outputEl.textContent = '...lade...';
-
+    async function sendMessage(text) {
+      if (!text || text === lastMsg) return;
+      lastMsg = text;
+      addMsg(text, 'user');
+      input.value = '';
+      typing.style.display = 'block';
       try {
-        const res = await fetch(endpoint, {
+        const r = await fetch('/api/command', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(payload)
+          body: JSON.stringify({ goal: text, api_token: token || undefined })
         });
-        const data = await res.json();
-        if (!res.ok) {
-          outputEl.textContent = JSON.stringify(data, null, 2);
-        } else {
-          outputEl.textContent = JSON.stringify(data, null, 2);
-        }
+        const data = await r.json();
+        typing.style.display = 'none';
+        const reply = data.result || data.error || 'Keine Antwort.';
+        addMsg(reply, 'jarvis');
       } catch (err) {
-        outputEl.textContent = `Netzwerkfehler: ${err.message}`;
+        typing.style.display = 'none';
+        addMsg('Verbindungsfehler: ' + err.message, 'jarvis');
       }
     }
 
+    function showToken() {
+      const t = prompt('API-Token (leer zum Entfernen):');
+      if (t !== null) {
+        token = t.trim();
+        localStorage.setItem('jarvis_token', token);
+        addSystem(token ? 'Token gesetzt' : 'Token entfernt');
+      }
+    }
+
+    sendBtn.onclick = () => sendMessage(input.value.trim());
+    input.onkeydown = e => { if (e.key === 'Enter') sendMessage(input.value.trim()); };
     updateStatus();
+    setInterval(updateStatus, 30000);
+    addSystem('Verbunden. Sende einen Befehl an Jarvis.');
   </script>
 </body>
 </html>

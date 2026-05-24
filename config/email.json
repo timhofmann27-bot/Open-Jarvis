@@ -1,0 +1,7 @@
+{
+  "provider": "imap",
+  "imap_server": "",
+  "smtp_server": "",
+  "email": "",
+  "password": ""
+}

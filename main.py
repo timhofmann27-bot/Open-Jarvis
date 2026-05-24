@@ -36,6 +36,7 @@ from actions.game_updater      import game_updater
 from actions.smart_home        import smart_home
 from actions.ytmusic           import ytmusic_action
 from actions.obsidian_control  import obsidian_action
+from actions.email_calendar    import email_action
 from core.plugin_loader       import load_plugins
 from core.notifier            import ProactiveNotifier
 
@@ -425,6 +426,25 @@ TOOL_DECLARATIONS = [
         }
     },
     {
+        "name": "email",
+        "description": (
+            "E-Mail und Kalender Aktionen: list/inbox (letzte 5 Mails), "
+            "send (E-Mail senden, Parameter: to, subject, body), "
+            "calendar/termine (naechste Termine aus Outlook). "
+            "Fuer E-Mails und Kalender nutzen."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "action":  {"type": "STRING", "description": "list | inbox | send | calendar | termine"},
+                "to":      {"type": "STRING", "description": "Empfaenger fuer send"},
+                "subject": {"type": "STRING", "description": "Betreff fuer send"},
+                "body":    {"type": "STRING", "description": "Inhalt fuer send"},
+            },
+            "required": ["action"]
+        }
+    },
+    {
         "name": "obsidian",
         "description": (
             "Steuert Obsidian. Aktionen: open (Obsidian oeffnen), search (Notizen durchsuchen), "
@@ -659,6 +679,17 @@ class JarvisLive:
 
         self._notifier = ProactiveNotifier(speak_fn=self.speak, write_log_fn=self.ui.write_log)
         self._notifier.start()
+
+        self._telegram_bot = None
+        self._start_telegram()
+
+    def _start_telegram(self):
+        try:
+            from core.telegram_bot import TelegramBot
+            self._telegram_bot = TelegramBot(speak_fn=self.speak, write_log_fn=self.ui.write_log)
+            self._telegram_bot.start()
+        except Exception as e:
+            print(f"[TELEGRAM] Start fehlgeschlagen: {e}")
 
     def _ensure_remote_server(self):
         if self._remote_server:
@@ -906,6 +937,9 @@ class JarvisLive:
                     os._exit(0)
 
                 threading.Thread(target=_shutdown, daemon=True).start()
+            elif name == "email":
+                r = await loop.run_in_executor(None, lambda: email_action(parameters=args, player=self.ui, speak=self.speak))
+                result = r or "Done."
             elif name in _PLUGIN_HANDLERS:
                 fn = _PLUGIN_HANDLERS[name]
                 result = await loop.run_in_executor(None, fn, args)
