@@ -34,6 +34,7 @@ from actions.web_search        import web_search as web_search_action
 from actions.computer_control  import computer_control
 from actions.game_updater      import game_updater
 from actions.smart_home        import smart_home
+from actions.ytmusic           import ytmusic_action
 from core.plugin_loader       import load_plugins
 from core.notifier            import ProactiveNotifier
 
@@ -404,6 +405,22 @@ TOOL_DECLARATIONS = [
                 "save":        {"type": "BOOLEAN", "description": "Save results to Notepad"},
             },
             "required": ["origin", "destination", "date"]
+        }
+    },
+    {
+        "name": "ytmusic",
+        "description": (
+            "Steuert YouTube Music. Aktionen: play (Song suchen und abspielen), "
+            "search, pause, resume, next, previous, volume (0-100), open. "
+            "Immer dieses Tool fuer Musikwünsche nutzen."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "action": {"type": "STRING", "description": "play | search | pause | resume | next | previous | volume | open"},
+                "query":  {"type": "STRING", "description": "Songtitel oder Suchbegriff fuer play/search, oder Lautstaerke 0-100 fuer volume"},
+            },
+            "required": ["action"]
         }
     },
     {
@@ -806,6 +823,10 @@ class JarvisLive:
 
             elif name == "computer_control":
                 r = await loop.run_in_executor(None, lambda: computer_control(parameters=args, player=self.ui))
+                result = r or "Done."
+
+            elif name == "ytmusic":
+                r = await loop.run_in_executor(None, lambda: ytmusic_action(parameters=args, player=self.ui, speak=self.speak))
                 result = r or "Done."
 
             elif name == "game_updater":
