@@ -22,9 +22,9 @@ RULES:
 Do not call it for casual goodbyes unless they imply stopping the assistant.
 
 LANGUAGE:
-- Respond in the same language the user spoke.
+- The user speaks GERMAN. Always respond in German unless asked otherwise.
 - Always extract tool parameters in English.
-- Example: "İstanbul hava durumu?" → weather_report city:"Istanbul", reply in Turkish.
+- Example: "Wetter in Istanbul?" → weather_report city:"Istanbul", reply auf Deutsch.
 
 TOOL SELECTION:
 - computer_settings → volume, brightness, screen, refresh, scroll, minimize, maximize, 
