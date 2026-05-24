@@ -86,10 +86,10 @@ def _update_memory_async(user_text: str, jarvis_text: str) -> None:
         data = extract_memory(user_text, jarvis_text, api_key)
         if data:
             update_memory(data)
-            print(f"[Memory] ✅ {list(data.keys())}")
+            print(f"[Memory] OK {list(data.keys())}")
     except Exception as e:
         if "429" not in str(e):
-            print(f"[Memory] ⚠️ {e}")
+            print(f"[Memory] WARN {e}")
 
 TOOL_DECLARATIONS = [
     {
@@ -562,6 +562,7 @@ class JarvisLive:
                 pass
 
         def _clap_manager():
+            import time as _time
             listener = None
             thread = None
             while True:
@@ -580,7 +581,6 @@ class JarvisLive:
                             print(f"[WAKE] Could not start listener: {e}")
                             listener = None
                     elif enabled and listener is not None:
-                        # update threshold dynamically
                         try:
                             listener.clap_threshold = threshold
                         except Exception:
@@ -595,7 +595,7 @@ class JarvisLive:
                         print('[WAKE] Clap listener stopped')
                 except Exception:
                     pass
-                time.sleep(1.0)
+                _time.sleep(1.0)
 
         threading.Thread(target=_clap_manager, daemon=True).start()
 
@@ -686,7 +686,7 @@ class JarvisLive:
         name = fc.name
         args = dict(fc.args or {})
 
-        print(f"[JARVIS] 🔧 {name}  {args}")
+        print(f"[JARVIS] TOOL {name}  {args}")
         self.ui.set_state("THINKING")
         if name == "save_memory":
             category = args.get("category", "notes")
@@ -694,7 +694,7 @@ class JarvisLive:
             value    = args.get("value", "")
             if key and value:
                 update_memory({category: {key: {"value": value}}})
-                print(f"[Memory] 💾 save_memory: {category}/{key} = {value}")
+                print(f"[Memory] SAVE save_memory: {category}/{key} = {value}")
             if not self.ui.muted:
                 self.ui.set_state("LISTENING")
             return types.FunctionResponse(
@@ -827,7 +827,7 @@ class JarvisLive:
         if not self.ui.muted:
             self.ui.set_state("LISTENING")
 
-        print(f"[JARVIS] 📤 {name} → {str(result)[:80]}")
+        print(f"[JARVIS] RESP {name} -> {str(result)[:80]}")
 
         return types.FunctionResponse(
             id=fc.id, name=name,
@@ -840,7 +840,7 @@ class JarvisLive:
             await self.session.send_realtime_input(media=msg)
 
     async def _listen_audio(self):
-        print("[JARVIS] 🎤 Mic started")
+        print("[JARVIS] MIC started")
         loop = asyncio.get_event_loop()
 
         def callback(indata, frames, time_info, status):
@@ -861,15 +861,15 @@ class JarvisLive:
                 blocksize=CHUNK_SIZE,
                 callback=callback,
             ):
-                print("[JARVIS] 🎤 Mic stream open")
+                print("[JARVIS] MIC stream open")
                 while True:
                     await asyncio.sleep(0.1)
         except Exception as e:
-            print(f"[JARVIS] ❌ Mic: {e}")
+            print(f"[JARVIS] ERR Mic: {e}")
             raise
 
     async def _receive_audio(self):
-        print("[JARVIS] 👂 Recv started")
+        print("[JARVIS] RECV started")
         out_buf, in_buf = [], []
 
         try:
@@ -916,7 +916,7 @@ class JarvisLive:
                     if response.tool_call:
                         fn_responses = []
                         for fc in response.tool_call.function_calls:
-                            print(f"[JARVIS] 📞 {fc.name}")
+                            print(f"[JARVIS] CALL {fc.name}")
                             fr = await self._execute_tool(fc)
                             fn_responses.append(fr)
                         await self.session.send_tool_response(
@@ -924,12 +924,12 @@ class JarvisLive:
                         )
 
         except Exception as e:
-            print(f"[JARVIS] ❌ Recv: {e}")
+            print(f"[JARVIS] ERR Recv: {e}")
             traceback.print_exc()
             raise
 
     async def _play_audio(self):
-        print("[JARVIS] 🔊 Play started")
+        print("[JARVIS] PLAY started")
         loop = asyncio.get_event_loop()
 
         stream = sd.RawOutputStream(
@@ -945,7 +945,7 @@ class JarvisLive:
                 self.set_speaking(True)
                 await asyncio.to_thread(stream.write, chunk)
         except Exception as e:
-            print(f"[JARVIS] ❌ Play: {e}")
+            print(f"[JARVIS] ERR Play: {e}")
             raise
         finally:
             self.set_speaking(False)
@@ -960,7 +960,7 @@ class JarvisLive:
 
         while True:
             try:
-                print("[JARVIS] 🔌 Connecting...")
+                print("[JARVIS] Connecting...")
                 self.ui.set_state("THINKING")
                 config = self._build_config()
 
@@ -973,7 +973,7 @@ class JarvisLive:
                     self.audio_in_queue = asyncio.Queue()
                     self.out_queue      = asyncio.Queue(maxsize=10)
 
-                    print("[JARVIS] ✅ Connected.")
+                    print("[JARVIS] Connected.")
                     self.ui.set_state("LISTENING")
                     self.ui.write_log("SYS: JARVIS online.")
 
@@ -983,12 +983,12 @@ class JarvisLive:
                     tg.create_task(self._play_audio())
                     
             except Exception as e:
-                print(f"[JARVIS] ⚠️ {e}")
+                print(f"[JARVIS] WARN {e}")
                 traceback.print_exc()
 
             self.set_speaking(False)
             self.ui.set_state("THINKING")
-            print("[JARVIS] 🔄 Reconnecting in 3s...")
+            print("[JARVIS] Reconnecting in 3s...")
             await asyncio.sleep(3)
 
 def main():
