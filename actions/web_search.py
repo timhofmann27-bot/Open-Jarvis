@@ -116,22 +116,45 @@ def web_search(
         player.write_log(f"[Search] {query or ', '.join(items)}")
 
     print(f"[WebSearch] 🔍 Query: {query!r}  Mode: {mode}")
-# replace: result = _gemini_search(query) block with:
     try:
         from or_client import client
-        result = client.chat(
-            query,
-            system="You are a web search assistant. Answer factually and concisely."
-        )
-        print("[WebSearch] ✅ OpenRouter OK.")
-        return result
+
+        if mode == "compare" and items:
+            prompt = (
+                f"Compare {', '.join(items)} in terms of {aspect}. "
+                "Give a concise comparison with pros, cons, and relevant facts."
+            )
+            result = client.chat(
+                prompt,
+                system="You are a product comparison assistant. Answer factually and concisely."
+            )
+        else:
+            result = client.chat(
+                query,
+                system="You are a web search assistant. Answer factually and concisely."
+            )
+
+        if result:
+            print("[WebSearch] ✅ OpenRouter OK.")
+            return result
+        raise RuntimeError("OpenRouter returned an empty response.")
+
     except Exception as e:
         print(f"[WebSearch] ⚠️ OpenRouter failed ({e}) — trying DDG...")
-        results = _ddg_search(query)
-        result  = _format_ddg(query, results)
-        print(f"[WebSearch] ✅ DDG: {len(results)} result(s).")
-        return result
-    
-    except Exception as e:
+        try:
+            if mode == "compare" and items:
+                aggregated = []
+                for item in items:
+                    aggregated.extend(_ddg_search(f"{item} {aspect}", max_results=3))
+                return _format_ddg(f"Compare {', '.join(items)}", aggregated)
+
+            results = _ddg_search(query)
+            result = _format_ddg(query, results)
+            print(f"[WebSearch] ✅ DDG: {len(results)} result(s).")
+            return result
+        except Exception as e2:
+            print(f"[WebSearch] ❌ All backends failed: {e2}")
+            return f"Search failed, sir: {e2}"
+
         print(f"[WebSearch] ❌ All backends failed: {e}")
         return f"Search failed, sir: {e}"

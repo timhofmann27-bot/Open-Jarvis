@@ -53,6 +53,50 @@ python main.py
 
 ---
 
+## 🌐 Remote Home Device Access
+
+Run the remote API on the machine where Jarvis is installed:
+
+```bash
+python remote_server.py --port 8080 --token YOUR_SECRET
+```
+
+Open the remote UI from any browser on your home network:
+
+```text
+http://<JARVIS-PC-IP>:8080/
+```
+
+For a TV-optimized mirror interface, open:
+
+```text
+http://<JARVIS-PC-IP>:8080/mirror
+```
+
+Jarvis can now also try to connect to the TV fully by itself when both devices are in the same WLAN. Say:
+
+```text
+Jarvis, verbinde dich mit meinem TV
+```
+
+Jarvis will start the TV mirror service, scan the local network for a smart TV or Android TV device, and try to open the mirror dashboard automatically.
+
+This web interface works on Android phones and Google TV browsers, so you can control Jarvis from another device without installing anything.
+
+If you prefer a CLI, use the remote client from any other home device:
+
+```bash
+python remote_client.py --server http://HOST:8080 --token YOUR_SECRET --goal "Schalte den Fernseher ein"
+```
+
+Available endpoints:
+- `GET /api/status`
+- `POST /api/plan` — returns a generated plan for a goal
+- `POST /api/command` — executes a goal through the Jarvis agent
+- `POST /api/tool` — triggers a single tool directly
+
+---
+
 ## 📋 Requirements
 
 | Requirement | Details |

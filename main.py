@@ -14,6 +14,7 @@ from memory.memory_manager import (
     should_extract_memory, extract_memory
 )
 
+import remote_server
 from actions.file_processor import file_processor
 from actions.flight_finder     import flight_finder
 from actions.open_app          import open_app
@@ -28,6 +29,7 @@ from actions.browser_control   import browser_control
 from actions.file_controller   import file_controller
 from actions.code_helper       import code_helper
 from actions.dev_agent         import dev_agent
+from actions.tv_control        import connect_tv
 from actions.web_search        import web_search as web_search_action
 from actions.computer_control  import computer_control
 from actions.game_updater      import game_updater
@@ -143,6 +145,27 @@ TOOL_DECLARATIONS = [
                 "platform":     {"type": "STRING", "description": "Platform: WhatsApp, Telegram, etc."}
             },
             "required": ["receiver", "message_text", "platform"]
+        }
+    },
+    {
+        "name": "network_status",
+        "description": "Checks internet connectivity, DNS resolution, ping reachability, and HTTP access for a host or URL.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "target": {"type": "STRING", "description": "Host or URL to check (default: google.com)."},
+                "check":  {"type": "STRING", "description": "Which check to perform: all | dns | ping | http | probe."}
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "connect_tv",
+        "description": "Starts or verifies the Jarvis TV mirror endpoint and returns the browser URL for TV connection.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+            "required": []
         }
     },
     {
@@ -502,7 +525,70 @@ class JarvisLive:
         self._loop          = None
         self._is_speaking   = False
         self._speaking_lock = threading.Lock()
+        self._remote_server  = None
         self.ui.on_text_command = self._on_text_command
+        # Manager thread: start/stop clap listener according to UI settings
+        def _on_clap_detected():
+            print('[WAKE] Doppelklatschen erkannt — aktiviere Jarvis')
+            try:
+                try:
+                    self.ui.show_activation_flash(tone=True, duration=0.8)
+                except Exception:
+                    pass
+                self.set_speaking(False)
+                self.ui.write_log('WAKE: Doppelklatschen erkannt')
+            except Exception:
+                pass
+
+        def _clap_manager():
+            listener = None
+            thread = None
+            while True:
+                try:
+                    enabled, threshold = self.ui.get_wake_config()
+                    if enabled and listener is None:
+                        try:
+                            mod = __import__('actions.wake_word', fromlist=['ClapListener'])
+                            listener = mod.ClapListener(callback=_on_clap_detected,
+                                                        clap_threshold=threshold,
+                                                        samplerate=SEND_SAMPLE_RATE)
+                            thread = threading.Thread(target=listener.run, daemon=True)
+                            thread.start()
+                            print('[WAKE] Clap listener started')
+                        except Exception as e:
+                            print(f"[WAKE] Could not start listener: {e}")
+                            listener = None
+                    elif enabled and listener is not None:
+                        # update threshold dynamically
+                        try:
+                            listener.clap_threshold = threshold
+                        except Exception:
+                            pass
+                    elif (not enabled) and listener is not None:
+                        try:
+                            listener.stop()
+                        except Exception:
+                            pass
+                        listener = None
+                        thread = None
+                        print('[WAKE] Clap listener stopped')
+                except Exception:
+                    pass
+                time.sleep(1.0)
+
+        threading.Thread(target=_clap_manager, daemon=True).start()
+
+    def _ensure_remote_server(self):
+        if self._remote_server:
+            return self._remote_server
+        token = remote_server.load_remote_token()
+        try:
+            self._remote_server = remote_server.start_remote_server(port=8080, token=token)
+            print("[RemoteServer] Started on port 8080")
+        except Exception as e:
+            print(f"[RemoteServer] Could not start: {e}")
+            self._remote_server = None
+        return self._remote_server
 
     def _on_text_command(self, text: str):
         if not self._loop or not self.session:
@@ -683,6 +769,18 @@ class JarvisLive:
             elif name == "flight_finder":
                 r = await loop.run_in_executor(None, lambda: flight_finder(parameters=args, player=self.ui))
                 result = r or "Done."
+
+            elif name == "connect_tv":
+                server = self._ensure_remote_server()
+                if not server:
+                    result = (
+                        "Ich konnte den TV-Mirror nicht starten. "
+                        "Bitte starte remote_server.py manuell und versuche es erneut."
+                    )
+                else:
+                    r = await loop.run_in_executor(None, lambda: connect_tv(parameters=args, player=self.ui))
+                    result = r or "Der TV-Mirror ist bereit."
+
             elif name == "shutdown_jarvis":
                 self.ui.write_log("SYS: Shutdown requested.")
                 self.speak("Goodbye, sir.")

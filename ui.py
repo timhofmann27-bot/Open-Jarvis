@@ -25,7 +25,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import (
     QApplication, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit,
     QMainWindow, QPushButton, QScrollArea, QSizePolicy, QTextEdit,
-    QVBoxLayout, QWidget, QProgressBar,
+    QVBoxLayout, QWidget, QProgressBar, QCheckBox, QSlider,
 )
 
 def _base_dir() -> Path:
@@ -1328,6 +1328,26 @@ class MainWindow(QMainWindow):
         fs_btn.clicked.connect(self._toggle_fullscreen)
         lay.addWidget(fs_btn)
 
+        # Wake-on-clap controls
+        wake_lbl = QLabel("Wake on Clap")
+        wake_lbl.setFont(QFont("Courier New", 8, QFont.Weight.Bold))
+        wake_lbl.setStyleSheet(f"color: {C.TEXT_MED}; background: transparent;")
+        lay.addWidget(wake_lbl)
+
+        self._wake_enable = QCheckBox("Enable double-clap wake")
+        self._wake_enable.setChecked(True)
+        self._wake_enable.setStyleSheet(f"color: {C.TEXT}; background: transparent;")
+        lay.addWidget(self._wake_enable)
+
+        srow = QHBoxLayout(); srow.setSpacing(6)
+        self._wake_slider = QSlider(Qt.Orientation.Horizontal)
+        self._wake_slider.setRange(0, 100)
+        self._wake_slider.setValue(60)
+        self._wake_slider.setToolTip("Sensitivity")
+        srow.addWidget(QLabel("Sens."))
+        srow.addWidget(self._wake_slider)
+        lay.addLayout(srow)
+
         return w
 
     def _build_input_row(self) -> QHBoxLayout:
@@ -1533,3 +1553,46 @@ class JarvisUI:
     def stop_speaking(self):
         if not self.muted:
             self.set_state("LISTENING")
+
+    def show_activation_flash(self, tone: bool = True, duration: float = 0.8):
+        """Briefly flash the HUD as activation feedback and optionally play a short tone."""
+        try:
+            prev = self._win.hud.speaking
+            # set speaking True to get the animated pulse
+            self._win.hud.speaking = True
+
+            if tone and platform.system() == 'Windows':
+                try:
+                    import winsound
+                    # 1000Hz, 120ms
+                    winsound.Beep(1000, 120)
+                except Exception:
+                    pass
+
+            def _reset():
+                time.sleep(duration)
+                try:
+                    self._win.hud.speaking = prev
+                except Exception:
+                    pass
+
+            t = threading.Thread(target=_reset, daemon=True)
+            t.start()
+        except Exception:
+            pass
+
+    def get_wake_config(self) -> tuple[bool, float]:
+        """Return (enabled, clap_threshold).
+
+        Sensitivity slider (0-100) maps to threshold: lower threshold = more sensitive.
+        Mapping chosen so slider=60 -> threshold ~0.22.
+        """
+        try:
+            enabled = bool(self._win._wake_enable.isChecked())
+            s = int(self._win._wake_slider.value())
+            # map s in [0,100] -> threshold in [0.40, 0.10]
+            threshold = 0.40 - (s / 100.0) * 0.30
+            threshold = max(0.08, min(0.45, threshold))
+            return enabled, float(threshold)
+        except Exception:
+            return True, 0.20

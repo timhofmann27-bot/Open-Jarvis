@@ -216,6 +216,10 @@ def _call_tool(tool: str, parameters: dict, speak: Callable | None) -> str:
         from actions.reminder import reminder
         return reminder(parameters=parameters, player=None) or "Done."
 
+    elif tool == "network_status":
+        from actions.network_status import network_status
+        return network_status(parameters=parameters, player=None) or "Done."
+
     elif tool == "youtube_video":
         from actions.youtube_video import youtube_video
         return youtube_video(parameters=parameters, player=None) or "Done."

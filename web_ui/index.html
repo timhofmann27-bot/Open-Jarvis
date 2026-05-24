@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jarvis Remote UI</title>
+  <style>
+    body { margin:0; font-family:Inter,system-ui,sans-serif; background:#04111d; color:#e4f8ff; }
+    .page { max-width:980px; margin:0 auto; padding:20px; }
+    .hero { display:flex; flex-wrap:wrap; gap:16px; align-items:center; justify-content:space-between; }
+    h1 { margin:0; font-size:clamp(2rem,3vw,3rem); }
+    p { margin:12px 0; color:#99c8dd; }
+    .card { background:#081624; border:1px solid #0f2f45; border-radius:18px; padding:20px; box-shadow:0 20px 80px rgba(0,0,0,.25); }
+    label { display:block; font-size:.95rem; margin-bottom:6px; color:#8ab9d8; }
+    input, textarea, select { width:100%; background:#051022; border:1px solid #12446d; color:#e4f8ff; border-radius:12px; padding:12px 14px; font-size:1rem; }
+    textarea { min-height:150px; resize:vertical; }
+    .row { display:grid; gap:14px; grid-template-columns:1fr 1fr; }
+    .row.full { grid-template-columns:1fr; }
+    button { border:none; border-radius:12px; padding:14px 18px; font-weight:700; cursor:pointer; background:#00c4ff; color:#031121; transition:transform .14s ease, background .2s ease; }
+    button:hover { transform:translateY(-1px); background:#65e4ff; }
+    .actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:8px; }
+    .output { white-space:pre-wrap; background:#02111c; border:1px solid #0f2f45; padding:18px; border-radius:16px; min-height:220px; overflow:auto; font-family:Menlo,monospace; color:#d5f6ff; }
+    .status { font-size:.95rem; color:#9bd8ff; margin-bottom:10px; }
+    .footer { margin-top:18px; color:#93bddf; font-size:.95rem; }
+    .note { color:#6fc9b9; }
+    @media(max-width:780px){ .hero{flex-direction:column;align-items:flex-start;} .row{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero">
+      <div>
+        <h1>Jarvis Remote UI</h1>
+        <p>Steuere Jarvis direkt aus dem Browser deines Android-Handys oder Google TV.</p>
+      </div>
+      <div class="status" id="status">Verbinde...</div>
+    </div>
+
+    <div class="card">
+      <div class="row full">
+        <div>
+          <label for="token">API Token (optional)</label>
+          <input id="token" placeholder="Wenn aktiviert, hier den Token eintragen" />
+        </div>
+      </div>
+
+      <div class="row full">
+        <div>
+          <label for="goal">Ziel / Befehl</label>
+          <textarea id="goal" placeholder="Schreibe hier, was Jarvis tun soll..."></textarea>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="tool">Werkzeug (optional)</label>
+          <input id="tool" placeholder="z. B. web_search, network_status" />
+        </div>
+        <div>
+          <label for="params">Tool-Parameter (JSON)</label>
+          <input id="params" placeholder='z. B. {"query":"Wetter Berlin"}' />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button onclick="sendRequest('command')">Ausführen</button>
+        <button onclick="sendRequest('plan')">Plan anzeigen</button>
+        <button onclick="sendRequest('tool')">Tool ausführen</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="output" id="output">Ergebnis wird hier angezeigt...</div>
+    </div>
+
+    <div class="footer">
+      Öffne diese Seite in einem Browser auf deinem Handy oder Google TV. <span class="note">Tipp:</span> Nutze die IP deines Jarvis-PCs, z. B. <code>http://192.168.1.42:8080/</code><br />
+      Für TV-optimierte Ansicht: <code>http://192.168.1.42:8080/mirror</code>
+    </div>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const outputEl = document.getElementById('output');
+
+    async function updateStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        if (res.ok) {
+          statusEl.textContent = `Verfügbar auf ${window.location.origin} · Auth ${data.auth_required ? 'Ja' : 'Nein'}`;
+        } else {
+          statusEl.textContent = `Fehler: ${data.error || res.statusText}`;
+        }
+      } catch (err) {
+        statusEl.textContent = 'Verbindung fehlgeschlagen';
+      }
+    }
+
+    async function sendRequest(mode) {
+      const token = document.getElementById('token').value.trim();
+      const goal = document.getElementById('goal').value.trim();
+      const tool = document.getElementById('tool').value.trim();
+      const paramsText = document.getElementById('params').value.trim();
+      let payload = {};
+      if (token) payload.api_token = token;
+
+      if (mode === 'tool') {
+        if (!tool) {
+          outputEl.textContent = 'Bitte gib einen Tool-Namen an.';
+          return;
+        }
+        payload.tool = tool;
+        try {
+          payload.parameters = paramsText ? JSON.parse(paramsText) : {};
+        } catch (err) {
+          outputEl.textContent = 'Ungültiges JSON in Tool-Parametern.';
+          return;
+        }
+      } else {
+        if (!goal) {
+          outputEl.textContent = 'Bitte gib ein Ziel oder einen Befehl ein.';
+          return;
+        }
+        payload.goal = goal;
+      }
+
+      const endpoint = mode === 'plan' ? '/api/plan' : mode === 'tool' ? '/api/tool' : '/api/command';
+      outputEl.textContent = '...lade...';
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          outputEl.textContent = JSON.stringify(data, null, 2);
+        } else {
+          outputEl.textContent = JSON.stringify(data, null, 2);
+        }
+      } catch (err) {
+        outputEl.textContent = `Netzwerkfehler: ${err.message}`;
+      }
+    }
+
+    updateStatus();
+  </script>
+</body>
+</html>
