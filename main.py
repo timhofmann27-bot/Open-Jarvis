@@ -34,6 +34,7 @@ from actions.web_search        import web_search as web_search_action
 from actions.computer_control  import computer_control
 from actions.game_updater      import game_updater
 from actions.smart_home        import smart_home
+from core.plugin_loader       import load_plugins
 
 
 def get_base_dir():
@@ -535,6 +536,10 @@ TOOL_DECLARATIONS = [
     },
 ]
 
+# Plugins automatisch laden
+_PLUGIN_DECLARATIONS, _PLUGIN_HANDLERS = load_plugins()
+TOOL_DECLARATIONS.extend(_PLUGIN_DECLARATIONS)
+
 
 class JarvisLive:
 
@@ -832,6 +837,9 @@ class JarvisLive:
                     os._exit(0)
 
                 threading.Thread(target=_shutdown, daemon=True).start()
+            elif name in _PLUGIN_HANDLERS:
+                fn = _PLUGIN_HANDLERS[name]
+                result = await loop.run_in_executor(None, fn, args)
             else:
                 result = f"Unknown tool: {name}"
 
