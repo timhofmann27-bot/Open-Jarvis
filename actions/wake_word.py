@@ -1,20 +1,24 @@
-"""Clap-based wake listener (double-clap detection).
-
-Usage:
-    from actions.wake_word import start_clap_listener
-    start_clap_listener(callback=on_wake)
-
-Provides a simple energy-based double-clap detector using `sounddevice`.
-The listener runs until the program exits. Callback is called on detection.
-"""
 from __future__ import annotations
 
+import json
 import time
 import threading
+from pathlib import Path
 from typing import Callable
 
 import numpy as np
 import sounddevice as sd
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
+
+
+def _get_pv_key() -> str:
+    try:
+        with open(CONFIG_PATH) as f:
+            return json.load(f).get("picovoice_api_key", "")
+    except Exception:
+        return ""
 
 
 class ClapListener:
@@ -33,37 +37,26 @@ class ClapListener:
         self.min_interval = min_interval
         self.max_interval = max_interval
         self.cooldown = cooldown
-
         self._peaks: list[float] = []
         self._last_trigger = 0.0
         self._running = False
 
     def _process_frame(self, indata: np.ndarray) -> None:
-        # indata shape: (frames, channels)
         if indata.size == 0:
             return
-        # Normalize int16 -> float32 in [-1,1]
         data = indata.astype('float32')
         if data.dtype == np.int16 or data.dtype == np.int32:
             maxv = np.iinfo(indata.dtype).max
             data = data / float(maxv)
-
-        # Use mono energy
         if data.ndim > 1:
             data = data.mean(axis=1)
-
         rms = float(np.sqrt(np.mean(data * data)))
         now = time.time()
-
         if rms >= self.clap_threshold:
-            # tiny refractory to avoid same-clap multiple frames
             if not self._peaks or (now - self._peaks[-1]) > 0.04:
                 self._peaks.append(now)
-                # keep only last 4
                 if len(self._peaks) > 4:
                     self._peaks = self._peaks[-4:]
-
-        # check for double clap: last two peaks within interval
         if len(self._peaks) >= 2:
             dt = self._peaks[-1] - self._peaks[-2]
             if self.min_interval <= dt <= self.max_interval:
@@ -76,7 +69,6 @@ class ClapListener:
                             self.callback()
                         except Exception:
                             pass
-                    # clear peaks to avoid retrigger
                     self._peaks.clear()
 
     def _audio_callback(self, indata, frames, time_info, status):
@@ -92,36 +84,76 @@ class ClapListener:
                 while self._running:
                     time.sleep(0.1)
         except Exception as e:
-            print(f"[WAKE] Clap listener error: {e}")
+            print(f"[WAKE] Clap error: {e}")
 
     def stop(self):
         self._running = False
 
 
-def start_clap_listener(callback: Callable[[], None], **kwargs) -> ClapListener:
-    """Start a blocking clap listener in the current thread.
+class VoiceWakeListener:
+    def __init__(self,
+                 callback: Callable[[], None],
+                 samplerate: int = 16000,
+                 blocksize: int = 1024):
+        self.callback = callback
+        self.sr = samplerate
+        self.block = blocksize
+        self._running = False
+        self._porcupine = None
+        self._audio_stream = None
 
-    Typical usage is to launch this in a background thread:
-        threading.Thread(target=start_clap_listener, args=(cb,), daemon=True).start()
-    """
-    listener = ClapListener(callback=callback, **kwargs)
-    listener.run()
-    return listener
+    def _init_porcupine(self) -> bool:
+        if self._porcupine is not None:
+            return True
+        try:
+            import pvporcupine
+            api_key = _get_pv_key()
+            if not api_key:
+                print("[WAKE] Voice: kein Picovoice API-Key in config/api_keys.json")
+                return False
+            self._porcupine = pvporcupine.create(access_key=api_key, keywords=["jarvis"])
+            return True
+        except Exception as e:
+            print(f"[WAKE] Voice Init fehlgeschlagen: {e}")
+            return False
 
+    def _audio_callback(self, indata, frames, time_info, status):
+        try:
+            if self._porcupine is None:
+                return
+            pcm = indata.copy()
+            if pcm.dtype != np.int16:
+                pcm = (pcm * 32767).astype(np.int16)
+            flat = pcm.flatten()
+            result = self._porcupine.process(flat.tolist())
+            if result >= 0:
+                print("[WAKE] Hey Jarvis erkannt!")
+                try:
+                    threading.Thread(target=self.callback, daemon=True).start()
+                except Exception:
+                    try:
+                        self.callback()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
-if __name__ == '__main__':
-    import argparse
+    def run(self):
+        if not self._init_porcupine():
+            return
+        self._running = True
+        try:
+            with sd.InputStream(samplerate=self.sr, channels=1, dtype='int16', blocksize=self.block, callback=self._audio_callback):
+                while self._running:
+                    time.sleep(0.1)
+        except Exception as e:
+            print(f"[WAKE] Voice error: {e}")
 
-    parser = argparse.ArgumentParser(description='Test double-clap wake listener')
-    parser.add_argument('--threshold', type=float, default=0.20, help='RMS threshold for clap (0-1)')
-    parser.add_argument('--sr', type=int, default=16000, help='Sample rate')
-    args = parser.parse_args()
-
-    def _on_wake():
-        print('[WAKE] Doppelklatschen erkannt!')
-
-    print('[WAKE] Starte Clap Listener (Ctrl+C zum Beenden)')
-    try:
-        start_clap_listener(callback=_on_wake, samplerate=args.sr, clap_threshold=args.threshold)
-    except KeyboardInterrupt:
-        print('\n[WAKE] Beendet')
+    def stop(self):
+        self._running = False
+        if self._porcupine:
+            try:
+                self._porcupine.delete()
+            except Exception:
+                pass
+            self._porcupine = None

@@ -548,39 +548,54 @@ class JarvisLive:
         self._speaking_lock = threading.Lock()
         self._remote_server  = None
         self.ui.on_text_command = self._on_text_command
-        # Manager thread: start/stop clap listener according to UI settings
-        def _on_clap_detected():
-            print('[WAKE] Doppelklatschen erkannt — aktiviere Jarvis')
+        # Manager thread: start/stop wake listener according to UI settings
+        def _on_wake_detected():
+            print('[WAKE] Aufwachsignal erkannt')
             try:
                 try:
                     self.ui.show_activation_flash(tone=True, duration=0.8)
                 except Exception:
                     pass
                 self.set_speaking(False)
-                self.ui.write_log('WAKE: Doppelklatschen erkannt')
+                self.ui.write_log('WAKE: Aufwachsignal erkannt')
             except Exception:
                 pass
 
-        def _clap_manager():
-            import time as _time
+        def _wake_manager():
+            import time as _wtime
             listener = None
             thread = None
+            current_method = None
             while True:
                 try:
-                    enabled, threshold = self.ui.get_wake_config()
+                    enabled, threshold, method = self.ui.get_wake_config()
+                    if enabled and method != current_method:
+                        if listener is not None:
+                            try:
+                                listener.stop()
+                            except Exception:
+                                pass
+                            listener = None
+                            thread = None
+                        current_method = method
+                        print(f'[WAKE] Methode gewechselt zu: {method}')
                     if enabled and listener is None:
                         try:
-                            mod = __import__('actions.wake_word', fromlist=['ClapListener'])
-                            listener = mod.ClapListener(callback=_on_clap_detected,
-                                                        clap_threshold=threshold,
-                                                        samplerate=SEND_SAMPLE_RATE)
+                            mod = __import__('actions.wake_word', fromlist=['ClapListener', 'VoiceWakeListener'])
+                            if method == 'clap':
+                                listener = mod.ClapListener(callback=_on_wake_detected,
+                                                            clap_threshold=threshold,
+                                                            samplerate=SEND_SAMPLE_RATE)
+                            else:
+                                listener = mod.VoiceWakeListener(callback=_on_wake_detected,
+                                                                 samplerate=SEND_SAMPLE_RATE)
                             thread = threading.Thread(target=listener.run, daemon=True)
                             thread.start()
-                            print('[WAKE] Clap listener started')
+                            print(f'[WAKE] Listener gestartet ({method})')
                         except Exception as e:
-                            print(f"[WAKE] Could not start listener: {e}")
+                            print(f"[WAKE] Konnte Listener nicht starten: {e}")
                             listener = None
-                    elif enabled and listener is not None:
+                    elif enabled and method == 'clap' and hasattr(listener, 'clap_threshold'):
                         try:
                             listener.clap_threshold = threshold
                         except Exception:
@@ -592,12 +607,13 @@ class JarvisLive:
                             pass
                         listener = None
                         thread = None
-                        print('[WAKE] Clap listener stopped')
+                        current_method = None
+                        print('[WAKE] Listener gestoppt')
                 except Exception:
                     pass
-                _time.sleep(1.0)
+                _wtime.sleep(1.0)
 
-        threading.Thread(target=_clap_manager, daemon=True).start()
+        threading.Thread(target=_wake_manager, daemon=True).start()
 
     def _ensure_remote_server(self):
         if self._remote_server:

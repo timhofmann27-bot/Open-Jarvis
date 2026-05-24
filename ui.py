@@ -23,7 +23,7 @@ from PyQt6.QtGui import (
     QRadialGradient, QShortcut,
 )
 from PyQt6.QtWidgets import (
-    QApplication, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit,
+    QApplication, QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit,
     QMainWindow, QPushButton, QScrollArea, QSizePolicy, QTextEdit,
     QVBoxLayout, QWidget, QProgressBar, QCheckBox, QSlider,
 )
@@ -1328,23 +1328,31 @@ class MainWindow(QMainWindow):
         fs_btn.clicked.connect(self._toggle_fullscreen)
         lay.addWidget(fs_btn)
 
-        # Wake-on-clap controls
-        wake_lbl = QLabel("Wake on Clap")
+        # Wake controls
+        wake_lbl = QLabel("Wake Word")
         wake_lbl.setFont(QFont("Courier New", 8, QFont.Weight.Bold))
         wake_lbl.setStyleSheet(f"color: {C.TEXT_MED}; background: transparent;")
         lay.addWidget(wake_lbl)
 
-        self._wake_enable = QCheckBox("Enable double-clap wake")
+        self._wake_enable = QCheckBox("Wake-Erkennung aktiv")
         self._wake_enable.setChecked(True)
         self._wake_enable.setStyleSheet(f"color: {C.TEXT}; background: transparent;")
         lay.addWidget(self._wake_enable)
+
+        mrow = QHBoxLayout(); mrow.setSpacing(6)
+        mrow.addWidget(QLabel("Methode:"))
+        self._wake_method = QComboBox()
+        self._wake_method.addItems(["Klatschen", "Sprache (Hey Jarvis)"])
+        self._wake_method.setStyleSheet(f"color: {C.WHITE}; background: #000d14; border: 1px solid {C.BORDER}; padding: 2px 4px;")
+        mrow.addWidget(self._wake_method)
+        lay.addLayout(mrow)
 
         srow = QHBoxLayout(); srow.setSpacing(6)
         self._wake_slider = QSlider(Qt.Orientation.Horizontal)
         self._wake_slider.setRange(0, 100)
         self._wake_slider.setValue(60)
-        self._wake_slider.setToolTip("Sensitivity")
-        srow.addWidget(QLabel("Sens."))
+        self._wake_slider.setToolTip("Empfindlichkeit")
+        srow.addWidget(QLabel("Empf."))
         srow.addWidget(self._wake_slider)
         lay.addLayout(srow)
 
@@ -1581,18 +1589,16 @@ class JarvisUI:
         except Exception:
             pass
 
-    def get_wake_config(self) -> tuple[bool, float]:
-        """Return (enabled, clap_threshold).
-
-        Sensitivity slider (0-100) maps to threshold: lower threshold = more sensitive.
-        Mapping chosen so slider=60 -> threshold ~0.22.
+    def get_wake_config(self) -> tuple[bool, float, str]:
+        """Return (enabled, threshold, method).
+        method = 'clap' or 'voice'
         """
         try:
             enabled = bool(self._win._wake_enable.isChecked())
             s = int(self._win._wake_slider.value())
-            # map s in [0,100] -> threshold in [0.40, 0.10]
             threshold = 0.40 - (s / 100.0) * 0.30
             threshold = max(0.08, min(0.45, threshold))
-            return enabled, float(threshold)
+            method = "clap" if self._win._wake_method.currentIndex() == 0 else "voice"
+            return enabled, float(threshold), method
         except Exception:
-            return True, 0.20
+            return True, 0.20, "clap"
