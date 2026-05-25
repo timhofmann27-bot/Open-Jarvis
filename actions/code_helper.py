@@ -203,8 +203,11 @@ Fixed code:"""
 
 
 def _run_file(path: Path, args: list, timeout: int) -> str:
+    _pyw = sys.executable.replace("python.exe", "pythonw.exe")
+    if not _pyw.endswith("pythonw.exe"):
+        _pyw = sys.executable
     interpreters = {
-        ".py":  [sys.executable],
+        ".py":  [_pyw],
         ".js":  ["node"],
         ".ts":  ["ts-node"],
         ".sh":  ["bash"],

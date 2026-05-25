@@ -49,14 +49,10 @@ _YT_VIDEO_FILTER = "EgIQAQ%3D%3D"
 
 def _open_url(url: str) -> None:
     try:
-        if is_mac():
-            subprocess.Popen(["open", url])
-        elif is_linux():
-            subprocess.Popen(["xdg-open", url])
-        else:
-            subprocess.Popen(["cmd", "/c", "start", "", url], shell=False)
+        import webbrowser
+        webbrowser.open(url)
     except Exception as e:
-        print(f"[YouTube] ⚠️ open_url failed: {e}")
+        print(f"[YouTube] open_url failed: {e}")
 
 def _scrape_first_video_url(query: str) -> str | None:
 

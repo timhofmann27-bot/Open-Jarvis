@@ -1,5 +1,5 @@
 import json
-import subprocess
+import os
 import webbrowser
 from pathlib import Path
 from urllib.parse import quote
@@ -113,21 +113,21 @@ def _open_obsidian():
     try:
         webbrowser.open("obsidian://open")
     except Exception:
-        subprocess.run(["start", "obsidian://open"], shell=True)
+        os.startfile("obsidian://open")
 
 
 def _open_obsidian_search(query: str):
     try:
         webbrowser.open(f"obsidian://search?query={quote(query)}")
     except Exception:
-        subprocess.run(["start", f"obsidian://search?query={quote(query)}"], shell=True)
+        os.startfile(f"obsidian://search?query={quote(query)}")
 
 
 def _open_obsidian_note(note: str):
     try:
         webbrowser.open(f"obsidian://new?name={quote(note)}")
     except Exception:
-        subprocess.run(["start", f"obsidian://new?name={quote(note)}"], shell=True)
+        os.startfile(f"obsidian://new?name={quote(note)}")
 
 
 def _log(msg: str, player):

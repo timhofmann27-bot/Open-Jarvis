@@ -21,6 +21,7 @@ import re
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from datetime import datetime
@@ -457,8 +458,11 @@ def _process_code(path: Path, action: str, params: dict, speak=None) -> str:
     if action == "run":
         if ext == "py":
             try:
+                pyw = sys.executable.replace("python.exe", "pythonw.exe")
+                if not pyw.endswith("pythonw.exe"):
+                    pyw = sys.executable
                 result = subprocess.run(
-                    ["python", str(path)],
+                    [pyw, str(path)],
                     capture_output=True, text=True, timeout=30
                 )
                 out = result.stdout or result.stderr

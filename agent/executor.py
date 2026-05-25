@@ -78,8 +78,11 @@ def _run_generated_code(description: str, speak: Callable | None = None) -> str:
 
         print(f"[Executor] 🐍 Running generated code: {tmp_path}")
 
+        pyw = sys.executable.replace("python.exe", "pythonw.exe")
+        if not pyw.endswith("pythonw.exe"):
+            pyw = sys.executable
         result = subprocess.run(
-            [sys.executable, tmp_path],
+            [pyw, tmp_path],
             capture_output=True, text=True,
             timeout=120, cwd=str(Path.home())
         )

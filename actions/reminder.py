@@ -74,7 +74,9 @@ try:
 except Exception:
     try:
         import subprocess
-        subprocess.run(["msg", "*", "/TIME:30", "{safe_message}"], shell=True)
+        subprocess.run(["msg", "*", "/TIME:30", "{safe_message}"],
+                       capture_output=True,
+                       creationflags=subprocess.CREATE_NO_WINDOW)
     except Exception:
         pass
 
@@ -126,8 +128,8 @@ except Exception:
             f.write(xml_content)
 
         result = subprocess.run(
-            f'schtasks /Create /TN "{task_name}" /XML "{xml_path}" /F',
-            shell=True, capture_output=True, text=True
+            ["schtasks", "/Create", "/TN", task_name, "/XML", xml_path, "/F"],
+            capture_output=True, text=True
         )
 
         try:

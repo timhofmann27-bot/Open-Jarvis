@@ -1085,9 +1085,11 @@ class JarvisLive:
             http_options={"api_version": "v1beta"}
         )
 
+        attempts = 0
         while True:
+            attempts += 1
             try:
-                print("[JARVIS] Connecting...")
+                print(f"[JARVIS] Connecting... (attempt {attempts})")
                 self.ui.set_state("THINKING")
                 config = self._build_config()
 
@@ -1095,6 +1097,7 @@ class JarvisLive:
                     client.aio.live.connect(model=LIVE_MODEL, config=config) as session,
                     asyncio.TaskGroup() as tg,
                 ):
+                    attempts = 0
                     self.session        = session
                     self._loop          = asyncio.get_event_loop()
                     self.audio_in_queue = asyncio.Queue()
@@ -1109,9 +1112,13 @@ class JarvisLive:
                     tg.create_task(self._receive_audio())
                     tg.create_task(self._play_audio())
                     
-            except Exception as e:
-                print(f"[JARVIS] WARN {e}")
+            except BaseException as e:
+                print(f"[JARVIS] WARN attempt {attempts}: {type(e).__name__}: {e}")
                 traceback.print_exc()
+
+            if attempts > 10:
+                print("[JARVIS] 10 Fehlversuche — warte 30s...")
+                await asyncio.sleep(30)
 
             self.set_speaking(False)
             self.ui.set_state("THINKING")
@@ -1128,6 +1135,9 @@ def main():
             asyncio.run(jarvis.run())
         except KeyboardInterrupt:
             print("\n🔴 Shutting down...")
+        except BaseException as e:
+            print(f"\n[EXIT] runner thread: {type(e).__name__}: {e}")
+            traceback.print_exc()
 
     threading.Thread(target=runner, daemon=True).start()
     ui.root.mainloop()

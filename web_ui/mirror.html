@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Jarvis TV Mirror</title>
+  <style>
+    body { margin:0; font-family:Inter,system-ui,sans-serif; background:#020f1b; color:#f0fcff; }
+    .page { min-height:100vh; padding:24px; box-sizing:border-box; display:grid; gap:20px; }
+    h1 { margin:0; font-size:clamp(3rem, 6vw, 5rem); letter-spacing:0.1em; text-transform:uppercase; }
+    .status { color:#9bd8ff; font-size:1.2rem; margin-top:8px; }
+    .hint { color:#7cc7d6; font-size:1rem; margin-top:8px; }
+    .panel { background:linear-gradient(180deg, rgba(4,20,35,.95), rgba(2,12,21,.96)); border:1px solid rgba(72,156,207,.24); border-radius:28px; padding:24px; box-shadow:0 24px 80px rgba(0,0,0,.22); }
+    label { display:block; margin-bottom:12px; font-size:1rem; color:#9bbedd; font-weight:600; }
+    input, textarea { width:100%; border-radius:18px; border:1px solid #1f4f74; background:#03111d; color:#eefcff; padding:18px 20px; font-size:1.05rem; }
+    textarea { min-height:180px; resize:none; }
+    button { width:100%; border:none; border-radius:18px; background:#00d6ff; color:#031121; font-size:1.05rem; padding:16px 20px; font-weight:800; cursor:pointer; transition:transform .15s ease, background .2s ease, box-shadow .2s ease; box-shadow:0 12px 30px rgba(0,212,255,.18); }
+    button:hover { transform:translateY(-2px); background:#73f0ff; }
+    .actions { display:grid; gap:14px; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); }
+    .output { min-height:220px; background:#02101b; border:1px solid rgba(68,120,156,.35); border-radius:22px; padding:22px; overflow:auto; font-family:Menlo,monospace; color:#d6f8ff; white-space:pre-wrap; }
+    .last-status { min-height:110px; background:#01101b; border:1px solid rgba(35,88,126,.3); border-radius:22px; padding:18px; font-family:Menlo,monospace; color:#cfefff; }
+    @media(max-width:900px) { .page { padding:16px; } h1 { font-size:2.6rem; } .actions { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div>
+      <h1>JARVIS TV MIRROR</h1>
+      <p class="status" id="status">Verbindung wird geprüft...</p>
+      <p class="hint">Die remote Oberfläche ist jetzt dein Jarvis-Dashboard. Öffne diese Seite auf dem Fernseher und nutze sie als schnelle Steuerzentrale.</p>
+    </div>
+
+    <div class="panel">
+      <label for="goal">Befehl / Ziel</label>
+      <textarea id="goal" placeholder="Schreibe hier, was Jarvis tun soll..."></textarea>
+    </div>
+
+    <div class="panel">
+      <label for="tool">Werkzeug (optional)</label>
+      <input id="tool" placeholder="z. B. web_search, network_status" />
+      <label for="params">Tool-Parameter (JSON)</label>
+      <input id="params" placeholder='z. B. {"query":"Wetter Berlin"}' />
+    </div>
+
+    <div class="actions">
+      <button onclick="sendRequest('command')">Befehl ausführen</button>
+      <button onclick="sendRequest('plan')">Plan anzeigen</button>
+      <button onclick="sendRequest('tool')">Tool ausführen</button>
+      <button onclick="goFullscreen()">Vollbild</button>
+    </div>
+
+    <div class="panel output" id="output">Ergebnis wird hier angezeigt...</div>
+    <div class="panel">
+      <strong>Letzter Status</strong>
+      <div class="output" id="lastStatus">Keine Aktionen bisher.</div>
+    </div>
+    <p class="hint">Ideal für den TV: Verwende die Seite als Jarvis-Steuerzentrale, die überall im Raum sichtbar ist.</p>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const outputEl = document.getElementById('output');
+    const lastStatusEl = document.getElementById('lastStatus');
+
+    async function updateStatus() {
+      try {
+        const response = await fetch('/api/status');
+        const data = await response.json();
+        if (response.ok) {
+          const time = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+          statusEl.textContent = `Bereit · ${time} · Auth ${data.auth_required ? 'Ja' : 'Nein'}`;
+        } else {
+          statusEl.textContent = `Fehler: ${data.error || response.statusText}`;
+        }
+      } catch (err) {
+        statusEl.textContent = 'Verbindung fehlgeschlagen';
+      }
+    }
+
+    function goFullscreen() {
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen();
+      }
+    }
+
+    async function sendRequest(mode) {
+      const goal = document.getElementById('goal').value.trim();
+      const tool = document.getElementById('tool').value.trim();
+      const paramsText = document.getElementById('params').value.trim();
+      const token = '';
+      let payload = {};
+      if (token) payload.api_token = token;
+
+      if (mode === 'tool') {
+        if (!tool) {
+          outputEl.textContent = 'Bitte gib einen Tool-Namen an.';
+          return;
+        }
+        payload.tool = tool;
+        try {
+          payload.parameters = paramsText ? JSON.parse(paramsText) : {};
+        } catch (err) {
+          outputEl.textContent = 'Ungültiges JSON in Tool-Parametern.';
+          return;
+        }
+      } else {
+        if (!goal) {
+          outputEl.textContent = 'Bitte gib ein Ziel oder einen Befehl ein.';
+          return;
+        }
+        payload.goal = goal;
+      }
+
+      const endpoint = mode === 'plan' ? '/api/plan' : mode === 'tool' ? '/api/tool' : '/api/command';
+      outputEl.textContent = 'Wird geladen...';
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        const text = JSON.stringify(data, null, 2);
+        outputEl.textContent = text;
+        lastStatusEl.textContent = `Letzte Anfrage: ${mode.toUpperCase()} · ${new Date().toLocaleTimeString('de-DE')}`;
+      } catch (err) {
+        outputEl.textContent = `Netzwerkfehler: ${err.message}`;
+        lastStatusEl.textContent = `Fehler bei letzter Anfrage: ${new Date().toLocaleTimeString('de-DE')}`;
+      }
+    }
+
+    updateStatus();
+    setInterval(updateStatus, 8000);
+  </script>
+</body>
+</html>

@@ -45,7 +45,7 @@ class ClapListener:
         if indata.size == 0:
             return
         data = indata.astype('float32')
-        if data.dtype == np.int16 or data.dtype == np.int32:
+        if indata.dtype == np.int16 or indata.dtype == np.int32:
             maxv = np.iinfo(indata.dtype).max
             data = data / float(maxv)
         if data.ndim > 1:
@@ -157,3 +157,74 @@ class VoiceWakeListener:
             except Exception:
                 pass
             self._porcupine = None
+
+
+class OpenWakeWordListener:
+    """Lokaler Wake-Word-Detektor mit openWakeWord (kein API-Key nötig)."""
+
+    def __init__(self,
+                 callback: Callable[[], None],
+                 model_name: str = "hey_jarvis",
+                 threshold: float = 0.5,
+                 samplerate: int = 16000,
+                 cooldown: float = 2.0):
+        self.callback = callback
+        self.model_name = model_name
+        self.threshold = threshold
+        self.sr = samplerate
+        self.cooldown = cooldown
+        self._running = False
+        self._model = None
+        self._last_trigger = 0.0
+
+    def _init_model(self) -> bool:
+        if self._model is not None:
+            return True
+        try:
+            from openwakeword import Model
+            self._model = Model(wakeword_models=[self.model_name],
+                                inference_framework="onnx")
+            return True
+        except Exception as e:
+            print(f"[WAKE] openWakeWord Init fehlgeschlagen: {e}")
+            return False
+
+    def _audio_callback(self, indata, frames, time_info, status):
+        try:
+            if self._model is None:
+                return
+            pcm = indata.copy()
+            if pcm.dtype != np.int16:
+                pcm = (pcm * 32767).astype(np.int16)
+            flat = pcm.flatten()
+            prediction = self._model.predict(flat)
+            score = prediction.get(self.model_name, 0.0)
+            now = time.time()
+            if score > self.threshold and now - self._last_trigger > self.cooldown:
+                self._last_trigger = now
+                print(f"[WAKE] {self.model_name} erkannt! ({score:.2f})")
+                try:
+                    threading.Thread(target=self.callback, daemon=True).start()
+                except Exception:
+                    try:
+                        self.callback()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    def run(self):
+        if not self._init_model():
+            return
+        self._running = True
+        try:
+            with sd.InputStream(samplerate=self.sr, channels=1, dtype='int16',
+                                blocksize=1280, callback=self._audio_callback):
+                while self._running:
+                    time.sleep(0.1)
+        except Exception as e:
+            print(f"[WAKE] openWakeWord error: {e}")
+
+    def stop(self):
+        self._running = False
+        self._model = None
