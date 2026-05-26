@@ -23,7 +23,7 @@ _PYW = sys.executable.replace("python.exe", "pythonw.exe")
 if not _PYW.endswith("pythonw.exe"):
     _PYW = sys.executable
 
-_JARVIS_TITLE = "J.A.R.V.I.S \u2014 MARK XXXIX"
+_JARVIS_TITLE = "J.A.R.V.I.S \u2014 Open-Jarvis"
 
 logging.basicConfig(
     filename=str(BASE_DIR / "listener.log"),
