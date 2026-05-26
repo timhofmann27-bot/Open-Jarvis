@@ -1,0 +1,977 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Jarvis Dashboard v4</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#050b12;color:#c8d8e4;padding:24px;min-height:100vh}
+h1{font-size:1.3rem;font-weight:600;color:#e0f0ff;display:flex;align-items:center;gap:10px}
+h1 small{font-weight:400;font-size:.75rem;color:#4a7a8a}
+.sub{color:#4a7080;font-size:.8rem;margin-bottom:20px;padding-left:26px}
+.grid-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:20px}
+.stat{background:linear-gradient(135deg,#0c1a26,#0a1620);border:1px solid #142838;border-radius:14px;padding:14px;position:relative;overflow:hidden}
+.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#00c8ff33,#00c8ff66,transparent)}
+.stat .val{font-size:1.4rem;font-weight:700;color:#d0ecff;line-height:1.2}
+.stat .lbl{font-size:.7rem;color:#4a7080;margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+.stat .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
+.dot-green{background:#30c060;box-shadow:0 0 8px #30c06044}
+.dot-gray{background:#2a4a5a}
+.dot-yellow{background:#d0a030;box-shadow:0 0 8px #d0a03044}
+.dot-red{background:#d03030;box-shadow:0 0 8px #d0303044}
+.section{background:linear-gradient(180deg,#0e1c2a,#0a1622);border:1px solid #142838;border-radius:16px;padding:20px;margin-bottom:14px}
+.section h2{font-size:.85rem;font-weight:600;color:#c0e0f0;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.bdg{font-size:.62rem;padding:2px 10px;border-radius:20px;background:#0a1e2a;color:#3a6a7a;font-weight:500;text-transform:uppercase;letter-spacing:.06em}
+.bdg-on{background:#0a2a1a;color:#50c070}
+.bdg-off{background:#2a0a0a;color:#c05050}
+.bdg-warn{background:#2a1a0a;color:#c09030}
+label{display:block;font-size:.75rem;color:#4a7080;margin-bottom:3px;margin-top:12px;font-weight:500}
+label:first-of-type{margin-top:0}
+input,select{width:100%;background:#060e16;border:1px solid #142838;border-radius:10px;padding:9px 13px;font-size:.82rem;color:#c8dce8;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:#00c8ff55;box-shadow:0 0 0 3px #00c8ff11}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.btn{background:linear-gradient(135deg,#00c8ff,#0098cc);border:none;border-radius:10px;padding:10px 22px;font-weight:600;font-size:.82rem;color:#021018;cursor:pointer;transition:transform .12s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{box-shadow:0 4px 20px #00c8ff22;transform:translateY(-1px)}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.35;cursor:default;transform:none}
+.btn-sm{font-size:.75rem;padding:7px 14px;border-radius:8px}
+.btn-ghost{background:transparent;border:1px solid #142838;color:#6a8a9a}
+.btn-ghost:hover{border-color:#2a4a6a;color:#b0d0e0;box-shadow:none}
+.btn-success{background:linear-gradient(135deg,#30c060,#20984a)}
+.btn-danger{background:linear-gradient(135deg,#d04040,#a03030)}
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#0f2230;border:1px solid #1a3848;color:#b0e8ff;padding:12px 28px;border-radius:30px;font-size:.8rem;opacity:0;transition:opacity .3s;pointer-events:none;z-index:99}
+.toast.show{opacity:1}
+.toast.err{background:#2a0a0a;border-color:#4a1a1a;color:#e08080}
+.tv-card{background:#060e16;border:1px solid #142838;border-radius:12px;padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:14px}
+.tv-card:hover{border-color:#1a384a}
+.tv-card .ico{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#0a1e2a,#06121a);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.tv-card .info{flex:1;min-width:0}
+.tv-card .name{font-size:.82rem;color:#d0e4f0;font-weight:500}
+.tv-card .meta{font-size:.7rem;color:#3a6a7a;margin-top:1px}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid #142838;border-top-color:#00c8ff;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.tool-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px}
+.tool-item{background:#060e16;border:1px solid #142838;border-radius:10px;padding:8px 10px;font-size:.72rem;display:flex;align-items:center;gap:8px}
+.tool-item .info{flex:1;min-width:0}
+.tool-item .name{color:#c0d8e8;font-weight:500}
+.tool-item .desc{color:#4a6a7a;font-size:.65rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tab-bar{display:flex;gap:2px;margin-bottom:14px;background:#060e16;border:1px solid #142838;border-radius:12px;padding:4px;flex-wrap:wrap}
+.tab{background:transparent;border:none;color:#4a7080;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:500;transition:all .15s}
+.tab:hover{color:#a0c0d0;background:#0a1620}
+.tab.active{color:#e0f0ff;background:linear-gradient(135deg,#0c1a26,#0e2232);box-shadow:0 1px 3px #00000033}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.persona-card{background:#060e16;border:1px solid #142838;border-radius:12px;padding:14px;margin-bottom:8px;font-size:.78rem}
+.persona-card .trait{color:#c0d8e8;font-weight:500}
+.persona-card .imp{color:#4a6a7a;font-size:.65rem}
+.bar-chart{display:flex;align-items:end;gap:3px;height:120px;padding:6px 0}
+.bar{background:linear-gradient(180deg,#00c8ff,#0066aa);border-radius:3px 3px 0 0;flex:1;min-width:4px;transition:height .5s;position:relative}
+.bar:hover{background:linear-gradient(180deg,#00e0ff,#0088cc)}
+.bar-label{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:.55rem;color:#4a6a7a;white-space:nowrap}
+.health-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:12px}
+.health-item{background:#060e16;border:1px solid #142838;border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px}
+.health-item .icon{font-size:1.2rem;width:32px;text-align:center}
+.health-item .info{flex:1}
+.health-item .name{font-size:.75rem;color:#b0d0e0;font-weight:500}
+.health-item .val{font-size:.65rem;color:#4a7080;margin-top:1px}
+.log-entry{font-size:.7rem;padding:6px 10px;border-bottom:1px solid #0a1a26;color:#4a7080;font-family:monospace}
+.log-entry:last-child{border-bottom:none}
+.log-entry .ts{color:#2a5a6a}
+.log-entry .msg{color:#7a9aaa}
+@media(max-width:640px){body{padding:14px}.grid-cards{grid-template-columns:repeat(2,1fr)}.row,.row3{grid-template-columns:1fr}.tool-grid{grid-template-columns:1fr}}
+@media(min-width:1200px){body{padding:32px 64px;max-width:1400px;margin:0 auto}}
+</style>
+</head>
+<body>
+
+<h1>&#9670; Jarvis <small>System Dashboard v4</small></h1>
+<p class="sub" id="statusBar">Lade...</p>
+
+<div class="tab-bar" id="tabBar"></div>
+<div id="root"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+function toast(msg, err) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (err ? ' err' : '');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function formatTime(ts) {
+  if (!ts) return '?';
+  try { return new Date(ts*1000).toLocaleString('de-DE'); }
+  catch(e) { return ts; }
+}
+
+function formatBytes(n) {
+  if (!n) return '0 B';
+  const u = ['B','KB','MB','GB','TB'];
+  let i = 0, v = n;
+  while (v > 1024 && i < u.length-1) { v /= 1024; i++; }
+  return v.toFixed(i===0?0:1) + ' ' + u[i];
+}
+
+// ── Tabs ──
+const TABS = [
+  { id: 'overview', label: '&#9670; Übersicht', icon: '◈' },
+  { id: 'health', label: '&#9829; Health', icon: '♥' },
+  { id: 'memory', label: '&#9733; Memory', icon: '★' },
+  { id: 'tools', label: '&#9881; Tools', icon: '⚙' },
+  { id: 'docker', label: '&#128051; Docker', icon: '🐳' },
+  { id: 'tv', label: '&#128250; TV & BT', icon: '📺' },
+  { id: 'config', label: '&#9881; Config', icon: '⚙' },
+  { id: 'logs', label: '&#128196; Logs', icon: '📄' },
+  { id: 'tests', label: '&#9881; Tests', icon: '⚡' },
+];
+
+let activeTab = 'overview';
+let configData = {};
+let healthData = {};
+let memoryData = {};
+let patternData = {};
+let modLogData = [];
+let improLogData = [];
+let dockerData = {};
+
+function renderTabs() {
+  const bar = document.getElementById('tabBar');
+  bar.innerHTML = TABS.map(t =>
+    `<button class="tab${t.id === activeTab ? ' active' : ''}" onclick="switchTab('${t.id}')">${t.icon} ${t.label.replace(/<[^>]+>/g,'')}</button>`
+  ).join('');
+}
+
+function switchTab(id) {
+  activeTab = id;
+  renderTabs();
+  render();
+}
+
+// ── API fetchers ──
+
+async function fetchAll() {
+  try {
+    const [cr, hr, mr, pr, mlr, dr] = await Promise.all([
+      fetch('/api/config').then(r => r.json()),
+      fetch('/api/health').then(r => r.json()),
+      fetch('/api/memory/stats').then(r => r.json()),
+      fetch('/api/proactive/patterns').then(r => r.json()),
+      fetch('/api/modification/log').then(r => r.json()),
+      fetch('/api/improvements/log').then(r => r.json()),
+      fetch('/api/status').then(r => r.json()),
+    ]);
+    configData = cr;
+    healthData = hr;
+    memoryData = mr;
+    patternData = pr;
+    modLogData = mlr.logs || [];
+    improLogData = irl.logs || [];
+    dockerData = dr;
+    document.getElementById('statusBar').textContent =
+      `System: ${dr.status||'ok'} · ${dr.tools||'?'} Tools · ${dr.local_ip}:${dr.port} · ${dr.env?.host||'?'}`;
+  } catch(e) {
+    toast('Fehler beim Laden: '+e.message, true);
+  }
+}
+
+// ── Render sections ──
+
+function renderStatusCards() {
+  const h = healthData.health || {};
+  const summary = h.summary || {};
+  const m = memoryData.stats || {};
+  const p = patternData.stats || {};
+
+  return `<div class="grid-cards">
+    <div class="stat"><div class="val"><span class="dot ${summary.all_ok ? 'dot-green' : 'dot-yellow'}"></span>${summary.healthy||0}/${summary.total||0}</div><div class="lbl">System Health</div></div>
+    <div class="stat"><div class="val"><span class="dot ${m.total > 0 ? 'dot-green' : 'dot-gray'}"></span>${m.total||0}</div><div class="lbl">Memory Einträge</div></div>
+    <div class="stat"><div class="val"><span class="dot ${p.total_analyzed > 0 ? 'dot-green' : 'dot-gray'}"></span>${p.total_analyzed||0}</div><div class="lbl">Patterns Analysiert</div></div>
+    <div class="stat"><div class="val"><span class="dot ${modLogData.length > 0 ? 'dot-green' : 'dot-gray'}"></span>${modLogData.length}</div><div class="lbl">Self-Mods</div></div>
+    <div class="stat"><div class="val">${dockerData.tools||'?'}</div><div class="lbl">Action Tools</div></div>
+    <div class="stat"><div class="val">${dockerData.total_files||'?'}</div><div class="lbl">Source Files</div></div>
+  </div>`;
+}
+
+function renderHealthTab() {
+  const h = healthData.health || {};
+  let html = '<h2>♥ System Health</h2>';
+
+  // Health grid
+  const items = [
+    { icon: '🔑', name: 'API Keys', status: h.api_keys?.status, detail: Object.values(h.api_keys?.checks||{}).filter(v=>v==='ok').length + '/' + Object.keys(h.api_keys?.checks||{}).length },
+    { icon: '📦', name: 'Imports', status: h.imports?.status, detail: h.imports?.count + ' failures' },
+    { icon: '🧠', name: 'Memory', status: h.memory?.status, detail: h.memory?.path?.split('\\').pop() || '' },
+    { icon: '💾', name: 'Disk', status: h.disk?.status, detail: h.disk?.free_mb + ' MB free' },
+    { icon: '🌐', name: 'Network', status: h.network?.status, detail: h.network?.latency || '' },
+    { icon: '⚙', name: 'Configs', status: h.config_files?.status, detail: (h.config_files?.issues||[]).join(', ') },
+  ];
+
+  html += '<div class="health-grid">';
+  for (const item of items) {
+    const dot = item.status === 'ok' ? 'dot-green' : (item.status === 'warning' ? 'dot-yellow' : 'dot-red');
+    html += `<div class="health-item">
+      <div class="icon">${item.icon}</div>
+      <div class="info">
+        <div class="name"><span class="dot ${dot}"></span>${item.name}</div>
+        <div class="val">${item.detail}</div>
+      </div>
+    </div>`;
+  }
+  html += '</div>';
+
+  // API Keys detail
+  const ak = h.api_keys?.checks || {};
+  const akEntries = Object.entries(ak);
+  if (akEntries.length) {
+    html += '<div style="margin-bottom:10px">';
+    for (const [key, val] of akEntries) {
+      const dot = val === 'ok' ? 'dot-green' : 'dot-red';
+      const masked = val === 'ok' ? '•••• konfiguriert' : 'fehlt';
+      html += `<div style="font-size:.72rem;padding:4px 8px;color:#4a7080"><span class="dot ${dot}"></span>${key}: ${masked}</div>`;
+    }
+    html += '</div>';
+  }
+
+  // Import failures
+  const failures = h.imports?.failures || [];
+  if (failures.length) {
+    html += '<h2 style="color:#c05050;font-size:.8rem">❌ Import Failures</h2>';
+    for (const f of failures) {
+      html += `<div class="log-entry"><span class="msg">${esc(f.module)}: ${esc(f.error)}</span></div>`;
+    }
+  }
+
+  // Healing log
+  const log = healthData.log || [];
+  if (log.length) {
+    html += '<h2 style="font-size:.8rem;margin-top:14px">📋 Healer Log (letzte 20)</h2>';
+    for (const entry of log.slice(-10)) {
+      html += `<div class="log-entry"><span class="msg">${esc(entry)}</span></div>`;
+    }
+  }
+
+  html += `<button class="btn btn-sm btn-ghost" onclick="refreshHealth()" style="margin-top:12px">⟳ Aktualisieren</button>`;
+  return html;
+}
+
+async function refreshHealth() {
+  try {
+    const r = await fetch('/api/health');
+    healthData = await r.json();
+    render();
+    toast('Health aktualisiert');
+  } catch(e) { toast('Fehler: '+e.message, true); }
+}
+
+function renderMemoryTab() {
+  const m = memoryData.stats || {};
+  const persona = memoryData.persona || '';
+
+  let html = '<h2>★ Memory Stats</h2>';
+
+  const collections = [
+    { name: 'Interactions', count: m.interactions || 0, icon: '💬' },
+    { name: 'Insights', count: m.insights || 0, icon: '💡' },
+    { name: 'Reflections', count: m.reflections || 0, icon: '🔄' },
+    { name: 'Persona', count: m.persona || 0, icon: '🧬' },
+    { name: 'Learnings', count: m.learnings || 0, icon: '📚' },
+  ];
+
+  const maxCount = Math.max(...collections.map(c => c.count), 1);
+
+  html += '<div class="health-grid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))">';
+  for (const c of collections) {
+    const pct = (c.count / maxCount * 100) || 0;
+    html += `<div class="health-item" style="flex-direction:column;align-items:stretch">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="name">${c.icon} ${c.name}</div>
+        <div class="val" style="font-size:.85rem;color:#d0ecff">${c.count}</div>
+      </div>
+      <div style="background:#0a1620;border-radius:6px;height:6px;margin-top:4px;overflow:hidden">
+        <div style="background:linear-gradient(90deg,#00c8ff,#0066aa);width:${pct}%;height:100%;border-radius:6px;transition:width .5s"></div>
+      </div>
+    </div>`;
+  }
+  html += '</div>';
+
+  if (persona) {
+    html += '<h2 style="font-size:.8rem;margin-top:14px">🧬 Persönlichkeit</h2>';
+    for (const line of persona.split('\n')) {
+      if (line.trim()) {
+        html += `<div class="persona-card"><div class="trait">${esc(line.replace(/^-\s*/,''))}</div></div>`;
+      }
+    }
+  }
+
+  html += `<button class="btn btn-sm btn-ghost" onclick="refreshMemory()" style="margin-top:12px">⟳ Aktualisieren</button>`;
+  return html;
+}
+
+async function refreshMemory() {
+  try {
+    const r = await fetch('/api/memory/stats');
+    memoryData = await r.json();
+    render();
+    toast('Memory aktualisiert');
+  } catch(e) { toast('Fehler: '+e.message, true); }
+}
+
+function renderPatternChart() {
+  const counts = patternData.hour_counts || {};
+  const maxVal = Math.max(...Object.values(counts), 1);
+
+  let html = '<h2>📊 Stündliche Aktivität (7 Tage)</h2><div class="bar-chart">';
+  for (let h = 0; h < 24; h++) {
+    const val = counts[h] || 0;
+    const pct = (val / maxVal * 100) || 0;
+    html += `<div class="bar" style="height:${pct}%" title="${h}:00 — ${val} Interaktionen"><div class="bar-label">${h}</div></div>`;
+  }
+  html += '</div>';
+
+  const topTools = patternData.stats?.top_tools || {};
+  const toolEntries = Object.entries(topTools);
+  if (toolEntries.length) {
+    html += '<h2 style="font-size:.8rem;margin-top:14px">🔝 Top Tools (Woche)</h2><div class="tool-grid">';
+    for (const [tool, count] of toolEntries.slice(0, 10)) {
+      html += `<div class="tool-item"><span class="dot dot-green"></span><div class="info"><div class="name">${esc(tool)}</div><div class="desc">${count}x verwendet</div></div></div>`;
+    }
+    html += '</div>';
+  }
+
+  html += `<button class="btn btn-sm btn-ghost" onclick="refreshPatterns()" style="margin-top:12px">⟳ Neu analysieren</button>`;
+  return html;
+}
+
+async function refreshPatterns() {
+  try {
+    const r = await fetch('/api/proactive/patterns');
+    patternData = await r.json();
+    render();
+    toast('Patterns analysiert');
+  } catch(e) { toast('Fehler: '+e.message, true); }
+}
+
+function renderToolsTab() {
+  const ak = configData.api_keys || {};
+  const sh = configData.smart_home || {};
+  const em = configData.email || {};
+  const ob = configData.obsidian || {};
+
+  const TOOLS = [
+    { n:'open_app',d:'Lokale Apps',k:[]},
+    { n:'web_search',d:'Websuche',k:['openrouter_api_key']},
+    { n:'weather_report',d:'Wetter',k:[]},
+    { n:'send_message',d:'Nachrichten',k:[]},
+    { n:'network_status',d:'Netzwerk',k:[]},
+    { n:'connect_tv',d:'TV-Steuerung',k:[]},
+    { n:'worldmonitor',d:'WorldMonitor',k:[]},
+    { n:'computer_use',d:'Vision-Steuerung',k:['gemini_api_key']},
+    { n:'system_integration',d:'Windows Tiefe',k:[]},
+    { n:'generative_graphics',d:'Charts/3D',k:[]},
+    { n:'hyper_connectivity',d:'Spotify/GitHub',k:['spotify_client_id','github_token']},
+    { n:'memory_recall',d:'Gedächtnis',k:[]},
+    { n:'memory_stats',d:'Memory Stats',k:[]},
+    { n:'self_list_sources',d:'Code-Liste',k:[]},
+    { n:'self_read_code',d:'Code lesen',k:[]},
+    { n:'self_validate_code',d:'Code prüfen',k:[]},
+    { n:'self_write_code',d:'Code schreiben',k:[]},
+    { n:'self_edit_code',d:'Code editieren',k:[]},
+    { n:'self_health_check',d:'Health Check',k:[]},
+    { n:'self_heal',d:'Auto-Repair',k:[]},
+    { n:'self_analyze_patterns',d:'Patterns',k:[]},
+    { n:'reminder',d:'Erinnerungen',k:[]},
+    { n:'youtube_video',d:'YouTube',k:['openrouter_api_key']},
+    { n:'screen_process',d:'Screen/Camera',k:['gemini_api_key']},
+    { n:'computer_settings',d:'System-Settings',k:[]},
+    { n:'browser_control',d:'Browser',k:[]},
+    { n:'file_controller',d:'Dateimanager',k:[]},
+    { n:'desktop_control',d:'Desktop',k:[]},
+    { n:'code_helper',d:'Code-Assistent',k:['gemini_api_key']},
+    { n:'dev_agent',d:'Dev-Agent',k:['gemini_api_key']},
+    { n:'agent_task',d:'Multi-Step',k:['gemini_api_key','openrouter_api_key']},
+    { n:'computer_control',d:'Input Control',k:[]},
+    { n:'game_updater',d:'Spiele',k:[]},
+    { n:'flight_finder',d:'Flugsuche',k:[]},
+    { n:'ytmusic',d:'YouTube Music',k:[]},
+    { n:'email',d:'E-Mail',k:['email.password']},
+    { n:'obsidian',d:'Obsidian',k:['obsidian.vault_path']},
+    { n:'smart_home',d:'Smart Home',k:['hue.api_key','homeassistant.token']},
+    { n:'file_processor',d:'Dateien',k:['gemini_api_key']},
+    { n:'docker_tool',d:'Docker',k:[]},
+    { n:'bt_tool',d:'Bluetooth',k:[]},
+  ];
+
+  const toolsWithStatus = TOOLS.map(t => {
+    let ok = true;
+    for (const k of t.k) {
+      if (k === 'email.password') { if(!em.password) ok=false; }
+      else if(k === 'obsidian.vault_path') { if(!ob.vault_path) ok=false; }
+      else if(k === 'hue.api_key') { if(!(sh.hue||{}).api_key) ok=false; }
+      else if(k === 'homeassistant.token') { if(!(sh.homeassistant||{}).token) ok=false; }
+      else { if(!ak[k]) ok=false; }
+    }
+    return {...t, ok, cls: t.k.length===0?'gray':(ok?'green':'yellow')};
+  });
+
+  const ready = toolsWithStatus.filter(t => t.cls === 'green').length;
+  const partial = toolsWithStatus.filter(t => t.cls === 'yellow').length;
+  const none = toolsWithStatus.filter(t => t.cls === 'gray').length;
+
+  let html = `<h2>⚙ Tools (${toolsWithStatus.length})</h2>
+  <div style="margin-bottom:10px;font-size:.75rem;color:#4a7080;display:flex;gap:16px">
+    <span><span class="dot dot-green"></span> ${ready} bereit</span>
+    <span><span class="dot dot-yellow"></span> ${partial} Konfig. nötig</span>
+    <span><span class="dot dot-gray"></span> ${none} kein Setup</span>
+  </div><div class="tool-grid">`;
+
+  for (const t of toolsWithStatus) {
+    const dot = t.cls === 'green' ? 'dot-green' : (t.cls === 'yellow' ? 'dot-yellow' : 'dot-gray');
+    html += `<div class="tool-item"><span class="dot ${dot}"></span>
+      <div class="info"><div class="name">${t.n}</div><div class="desc">${t.d}</div></div></div>`;
+  }
+  html += '</div>';
+
+  // MCP tools
+  html += '<h2 style="font-size:.8rem;margin-top:14px">🐳 MCP Tools</h2><div id="mcpList"><div style="color:#4a7080;font-size:.75rem">Lade...</div></div>';
+
+  return html;
+}
+
+function renderDockerTab() {
+  let html = '<h2>🐳 Docker Status</h2><div id="dockerStatus"><span class="spin"></span> Lade...</div>';
+  html += '<div id="dockerContainers" style="margin-top:10px"></div>';
+  html += '<div id="dockerImages" style="margin-top:10px"></div>';
+  html += `<button class="btn btn-sm btn-ghost" onclick="loadDocker()" style="margin-top:10px">⟳ Aktualisieren</button>`;
+  return html;
+}
+
+async function loadDocker() {
+  const statusDiv = document.getElementById('dockerStatus');
+  const contDiv = document.getElementById('dockerContainers');
+  const imgDiv = document.getElementById('dockerImages');
+  if (!statusDiv) return;
+
+  try {
+    const sr = await fetch('/api/docker/status');
+    const st = await sr.json();
+    if (!st.connected) {
+      statusDiv.innerHTML = `<span style="color:#c05050">Docker nicht verfügbar: ${esc(st.error)}</span>`;
+      contDiv.innerHTML = ''; imgDiv.innerHTML = '';
+      return;
+    }
+    statusDiv.innerHTML = `<span style="display:flex;gap:12px;flex-wrap:wrap;font-size:.78rem">
+      <span>🐳 v${st.version}</span>
+      <span>▶ ${st.running} running</span>
+      <span>⏸ ${st.paused} paused</span>
+      <span>⏹ ${st.stopped} stopped</span>
+      <span>📦 ${st.images} images</span>
+      <span>💾 ${st.driver}</span>
+    </span>`;
+
+    const cr = await fetch('/api/docker/ps?all=1');
+    const clist = await cr.json();
+    let ch = '<div style="font-size:.75rem;color:#4a7080;margin-bottom:6px">Container</div>';
+    for (const c of clist) {
+      const running = c.status === 'running';
+      ch += `<div class="tv-card" style="padding:10px 12px">
+        <div class="ico" style="width:28px;height:28px;font-size:.85rem">${running?'▶':'⏹'}</div>
+        <div class="info">
+          <div class="name" style="font-size:.78rem">${esc(c.name)} <span style="color:#4a6a7a;font-weight:400">${esc(c.image)}</span></div>
+          <div class="meta"><span class="dot ${running?'dot-green':'dot-gray'}"></span> ${c.status} ${c.ports.join(', ')}</div>
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          ${!running ? `<button class="btn btn-sm btn-success" onclick="dockerAction('start','${c.id}')" style="padding:4px 10px;font-size:.68rem">Start</button>` : ''}
+          ${running ? `<button class="btn btn-sm" onclick="dockerAction('restart','${c.id}')" style="padding:4px 10px;font-size:.68rem">Restart</button>` : ''}
+          ${running ? `<button class="btn btn-sm btn-danger" onclick="dockerAction('stop','${c.id}')" style="padding:4px 10px;font-size:.68rem">Stop</button>` : ''}
+          <button class="btn btn-sm btn-ghost" onclick="dockerLogs('${c.id}')" style="padding:4px 10px;font-size:.68rem">Logs</button>
+        </div>
+      </div>`;
+    }
+    if (!clist.length) ch += '<div style="padding:8px 0;font-size:.75rem;color:#4a7080">Keine Container</div>';
+    contDiv.innerHTML = ch;
+
+    const ir = await fetch('/api/docker/images');
+    const ilist = await ir.json();
+    let ih = '<div style="font-size:.75rem;color:#4a7080;margin-bottom:6px;margin-top:10px">Images</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px">';
+    for (const img of ilist) {
+      const tag = img.tags?.[0] || img.id;
+      const add = img.tags?.length > 1 ? ` +${img.tags.length-1}` : '';
+      ih += `<div style="background:#060e16;border:1px solid #142838;border-radius:8px;padding:8px 10px;font-size:.7rem">
+        <div style="color:#b0d0e0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(tag)}${add}</div>
+        <div style="color:#4a6a7a;margin-top:1px">${formatBytes(img.size)}</div>
+      </div>`;
+    }
+    ih += '</div>';
+    imgDiv.innerHTML = ih;
+
+  } catch(e) {
+    statusDiv.innerHTML = `<span style="color:#c05050">Fehler: ${esc(e.message)}</span>`;
+  }
+}
+
+async function dockerAction(action, cid) {
+  try {
+    const r = await fetch(`/api/docker/${action}/${cid}`, {method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    if (!r.ok) throw new Error(r.statusText);
+    toast(`${action} ${cid.substr(0,12)} ok`);
+    loadDocker();
+  } catch(e) { toast('Fehler: '+e.message, true); }
+}
+
+async function dockerLogs(cid) {
+  try {
+    const r = await fetch(`/api/docker/logs/${cid}`, {method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    const d = await r.json();
+    const win = window.open('','_blank','width=900,height=600');
+    if (!win) { toast('Popup blocked', true); return; }
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0a0f16;color:#c8d8e4;font-family:monospace;font-size:12px;padding:16px;white-space:pre-wrap}</style></head><body>${esc(d.logs)}</body></html>`);
+    win.document.close();
+  } catch(e) { toast('Fehler: '+e.message, true); }
+}
+
+function renderTVTab() {
+  const dev = configData.devices || {};
+  const ltv = dev.last_tv || {};
+
+  let html = '<h2>📺 TV & Bluetooth</h2>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
+  html += '<button class="btn" onclick="wirelessDisplay()" style="flex:1">📺 Bildschirm übertragen</button>';
+  html += '</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">';
+  html += '<button class="btn btn-sm" id="scanBtn" onclick="scanTVs()">🔍 SSDP scannen</button>';
+  html += '<button class="btn btn-sm btn-ghost" id="btScanBtn" onclick="scanBT()">📡 BT scannen</button>';
+  if (ltv.ip) html += `<span style="font-size:.75rem;color:#4a7080;display:flex;align-items:center;gap:4px">Letzter: ${esc(ltv.name||ltv.ip)}</span>`;
+  else if (ltv.bt_address) html += `<span style="font-size:.75rem;color:#4a7080">📺 ${esc(ltv.name||ltv.bt_address)} (BT)</span>`;
+  html += '</div><div id="tvResults"></div><div id="btResults" style="margin-bottom:8px"></div>';
+  html += '<div class="row3" style="margin-top:8px">' +
+    fld('dev_last_ip','TV-IP',ltv.ip||'',{ph:'192.168.1.x'}) +
+    fld('dev_last_name','TV-Name',ltv.name||'',{ph:'Wohnzimmer'}) +
+    fld('dev_bt_addr','BT-Adresse',ltv.bt_address||'',{ph:'7C:0A:3F:...'}) +
+  '</div>';
+  if (ltv.bt_address) {
+    html += `<button class="btn btn-sm btn-success" onclick="connectBT('${esc(ltv.bt_address)}','${esc(ltv.name||'TV')}')" style="margin-top:6px">⚡ TV wecken (WOL)</button>`;
+  }
+  return html;
+}
+
+async function scanTVs() {
+  const btn = document.getElementById('scanBtn');
+  const res = document.getElementById('tvResults');
+  if (!btn||!res) return;
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Suche...';
+  res.innerHTML = '';
+  try {
+    const r = await fetch('/api/tv/discover');
+    const d = await r.json();
+    if (d.devices?.length) {
+      let html = '<div style="font-size:.75rem;color:#4a7080;margin-bottom:8px">Gefundene Geräte</div>';
+      for (const v of d.devices) {
+        html += `<div class="tv-card">
+          <div class="ico">${v.friendly_name?.toLowerCase().includes('tv')?'📺':'📱'}</div>
+          <div class="info"><div class="name">${esc(v.friendly_name)}</div>
+          <div class="meta">${esc(v.ip)} · ${esc(v.model)}</div></div>
+          <button class="btn btn-sm btn-success" onclick="connectTV('${esc(v.ip)}','${esc(v.friendly_name)}')">Verbinden</button>
+        </div>`;
+      }
+      res.innerHTML = html;
+      toast(`${d.count} Gerät${d.count!==1?'e':''} gefunden`);
+    } else {
+      res.innerHTML = '<div style="padding:12px 0;font-size:.78rem;color:#4a7080">Keine Geräte gefunden.</div>';
+      toast('Keine Geräte', true);
+    }
+  } catch(e) {
+    res.innerHTML = `<div style="padding:12px 0;font-size:.78rem;color:#c05050">${e.message}</div>`;
+  } finally {
+    btn.disabled = false; btn.innerHTML = '🔍 Geräte scannen';
+  }
+}
+
+async function connectTV(ip, name) {
+  try {
+    const r = await fetch('/api/tv/connect', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip,name})});
+    const d = await r.json();
+    toast(d.connected ? `Verbunden mit ${name}` : `Konnte nicht verbinden`, !d.connected);
+    setTimeout(fetchAll, 500);
+  } catch(e) { toast('Fehler: '+e.message, true); }
+}
+
+async function scanBT() {
+  const btn = document.getElementById('btScanBtn');
+  const res = document.getElementById('btResults');
+  if (!btn||!res) return;
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Scannen...';
+  res.innerHTML = '';
+  try {
+    const r = await fetch('/api/bt/scan');
+    const d = await r.json();
+    let html = '';
+    if (d.devices?.length) {
+      html += `<div style="font-size:.75rem;color:#4a7080;margin-bottom:8px">📡 ${d.count} Geräte</div>`;
+      for (const dev of d.devices) {
+        html += `<div class="tv-card" style="padding:10px 12px">
+          <div class="ico" style="width:28px;height:28px;font-size:.9rem">${dev.is_tv?'📺':'📱'}</div>
+          <div class="info">
+            <div class="name" style="font-size:.78rem">${esc(dev.name)} ${dev.is_tv?'<span class="bdg bdg-on" style="font-size:.6rem">TV</span>':''}</div>
+            <div class="meta">${esc(dev.address)} · ${dev.rssi} dBm</div>
+          </div>
+          <button class="btn btn-sm btn-success" onclick="connectBT('${esc(dev.address)}','${esc(dev.name)}')">Verbinden</button>
+        </div>`;
+      }
+    }
+    try {
+      const kr = await fetch('/api/bt/devices');
+      const kd = await kr.json();
+      if (kd.devices?.length) {
+        html += `<div style="font-size:.75rem;color:#4a7080;margin-top:10px;margin-bottom:6px">📋 Bekannte (${kd.count})</div>`;
+        for (const dev of kd.devices) {
+          html += `<div class="tv-card" style="padding:8px 10px;opacity:.7">
+            <div class="ico" style="width:24px;height:24px;font-size:.8rem">${dev.type==='tv'?'📺':'📱'}</div>
+            <div class="info">
+              <div class="name" style="font-size:.75rem">${esc(dev.name)}</div>
+              <div class="meta">${esc(dev.address)}</div>
+            </div>
+            <button class="btn btn-sm btn-success" onclick="connectBT('${esc(dev.address)}','${esc(dev.name)}')" style="padding:3px 8px;font-size:.65rem">Wecken</button>
+          </div>`;
+        }
+      }
+    } catch(e) {}
+    if (!html) html = '<div style="padding:12px 0;font-size:.78rem;color:#4a7080">Keine BT-Geräte.</div>';
+    res.innerHTML = html;
+  } catch(e) {
+    res.innerHTML = `<div style="padding:12px 0;font-size:.78rem;color:#c05050">${e.message}</div>`;
+  } finally {
+    btn.disabled = false; btn.innerHTML = '📡 BT scannen';
+  }
+}
+
+async function connectBT(address, name) {
+  try {
+    const r = await fetch('/api/bt/connect', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({address,name})});
+    if (!r.ok) throw new Error(r.statusText);
+    const d = await r.json();
+    if (d.connected) { toast(`✅ ${d.name} verbunden`); setTimeout(fetchAll, 500); }
+    else { toast(`❌ ${d.error || 'Keine Verbindung'}`, true); }
+  } catch(e) { toast('Fehler: '+e.message, true); }
+}
+
+async function wirelessDisplay() {
+  try {
+    await fetch('/api/wireless-display', {method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    toast('📺 Connect-Fenster geöffnet');
+  } catch(e) { toast('Fehler: '+e.message, true); }
+}
+
+function renderConfigTab() {
+  const ak = configData.api_keys || {};
+  const sh = configData.smart_home || {};
+  const hue = sh.hue || {};
+  const ha = sh.homeassistant || {};
+  const em = configData.email || {};
+  const tg = configData.telegram || {};
+  const ob = configData.obsidian || {};
+  const pr = configData.proactive || {};
+  const dev = configData.devices || {};
+  const ww = dev.wake_method || 'voice';
+
+  let html = '<h2>⚙ Konfiguration</h2>';
+
+  html += '<h2 style="font-size:.8rem">🔑 API Keys</h2>';
+  html += fld('ak_gemini','Gemini API Key',ak.gemini_api_key,{ph:'AIza...'});
+
+  html += '<h2 style="font-size:.8rem;margin-top:14px">🏠 Smart Home</h2>';
+  html += '<div class="row"><div>' + fld('sh_hue_ip','Hue Bridge-IP',hue.bridge_ip,{ph:'192.168.1.100'}) + '</div><div>' + fld('sh_ha_url','Home Assistant URL',ha.url,{ph:'http://192.168.1.200:8123'}) + '</div></div>';
+
+  html += '<h2 style="font-size:.8rem;margin-top:14px">📧 E-Mail</h2>';
+  html += '<div class="row">' + fld('em_email','Adresse',em.email,{ph:'name@domain.com'}) + fld('em_pass','Passwort',em.password,{type:'password'}) + '</div>';
+
+  html += '<h2 style="font-size:.8rem;margin-top:14px">📱 Telegram</h2>';
+  html += fld('tg_token','Bot-Token',tg.bot_token,{ph:'123456:ABC-DEF...'});
+
+  html += '<h2 style="font-size:.8rem;margin-top:14px">📝 Obsidian</h2>';
+  html += fld('ob_vault','Vault-Pfad',ob.vault_path,{ph:'C:/Users/...'});
+
+  html += '<h2 style="font-size:.8rem;margin-top:14px">🔔 Proaktive Hinweise</h2>';
+  html += '<div class="row">' + fld('pr_weather','Wetter (min)',pr.weather_interval_min||120,{type:'number'}) + fld('pr_news','News (min)',pr.news_interval_min||180,{type:'number'}) + '</div>';
+  html += fld('pr_city','Wetter-Stadt',pr.weather_city||'Berlin',{ph:'Berlin'});
+
+  html += `<button class="btn" onclick="saveConfig()" style="width:100%;justify-content:center;padding:12px;margin-top:16px">✓ Speichern</button>`;
+  return html;
+}
+
+function fld(id, label, value, opts) {
+  opts = opts || {};
+  return `<label for="${id}">${label}</label><input id="${id}" type="${opts.type||'text'}" value="${esc(value)}" placeholder="${opts.ph||''}" />`;
+}
+
+function gather() {
+  return {
+    api_keys: { gemini_api_key:g('ak_gemini') },
+    smart_home: { hue:{bridge_ip:g('sh_hue_ip')}, homeassistant:{url:g('sh_ha_url')} },
+    email: { email:g('em_email'), password:g('em_pass') },
+    telegram: { bot_token:g('tg_token') },
+    obsidian: { vault_path:g('ob_vault') },
+    proactive: { weather_interval_min:parseInt(g('pr_weather'))||120, news_interval_min:parseInt(g('pr_news'))||180, weather_city:g('pr_city')||'Berlin' },
+    devices: { last_tv:{ip:g('dev_last_ip'),name:g('dev_last_name'),bt_address:g('dev_bt_addr')} },
+  };
+}
+
+function g(id) { const e=document.getElementById(id); return e?e.value.trim():''; }
+
+async function saveConfig() {
+  const btn = document.querySelector('#root .btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Speichern...'; }
+  try {
+    const r = await fetch('/api/config', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(gather())});
+    if (!r.ok) throw new Error((await r.json()).error||r.statusText);
+    toast('Einstellungen gespeichert');
+    setTimeout(fetchAll, 300);
+  } catch(e) { toast('Fehler: '+e.message, true); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '✓ Speichern'; } }
+}
+
+function renderLogsTab() {
+  let html = '<h2>📄 Self-Modification Log</h2>';
+  if (!modLogData.length) {
+    html += '<div style="color:#4a7080;font-size:.75rem">Keine Einträge.</div>';
+  }
+  for (const entry of modLogData.slice().reverse()) {
+    const ts = entry.timestamp || '';
+    const type = entry.type || '';
+    const details = entry.details || {};
+    const file = details.file || '';
+    html += `<div class="log-entry">
+      <span class="ts">${esc(ts)}</span>
+      <span style="color:#3a7a8a">[${esc(type)}]</span>
+      <span class="msg">${esc(JSON.stringify(details).slice(0,120))}</span>
+    </div>`;
+  }
+  html += '<h2 style="margin-top:1.5rem">🔧 Self-Improvement Log</h2>';
+  if (!improLogData.length) {
+    html += '<div style="color:#4a7080;font-size:.75rem">Noch kein Cycle gelaufen. Sag JARVIS: "Führe Self-Improvement aus".</div>';
+  }
+  for (const entry of improLogData.slice().reverse()) {
+    const s = entry.summary || {};
+    const ts = entry.timestamp || 0;
+    const d = new Date(ts * 1000).toLocaleString();
+    const ok = s.fixes_applied || 0;
+    const fail = s.fixes_failed || 0;
+    const testPass = s.tests_passed || 0;
+    const testTot = s.tests_total || 0;
+    const found = s.total_findings || 0;
+    html += `<div class="log-entry">
+      <span class="ts">${esc(d)}</span>
+      <span style="color:#7ab83a">[Cycle #${s.cycle||'?'}]</span>
+      <span class="msg">${found} Probleme · ${ok} OK · ${fail} Fehler · Tests ${testPass}/${testTot}</span>
+    </div>`;
+    for (const fix of (s.fixes || [])) {
+      html += `<div class="log-entry" style="padding-left:2rem;color:#5a9a5a">
+        <span class="msg">✓ ${esc(fix)}</span>
+      </div>`;
+    }
+    for (const f of (s.failures || [])) {
+      html += `<div class="log-entry" style="padding-left:2rem;color:#b84a4a">
+        <span class="msg">✗ ${esc(f.finding||'')}: ${esc(f.reason||'')}</span>
+      </div>`;
+    }
+  }
+  return html;
+}
+  for (const entry of modLogData.slice().reverse()) {
+    const ts = entry.timestamp || '';
+    const type = entry.type || '';
+    const details = entry.details || {};
+    const file = details.file || '';
+    html += `<div class="log-entry">
+      <span class="ts">${esc(ts)}</span>
+      <span style="color:#3a7a8a">[${esc(type)}]</span>
+      <span class="msg">${esc(JSON.stringify(details).slice(0,120))}</span>
+    </div>`;
+  }
+  return html;
+}
+
+// ── Main render ──
+
+function render() {
+  const html = renderStatusCards() +
+    `<div id="tabContent_${activeTab}" class="tab-content active">${getTabContent(activeTab)}</div>`;
+  document.getElementById('root').innerHTML = html;
+
+  // Load async content for tabs
+  if (activeTab === 'docker') setTimeout(loadDocker, 100);
+  if (activeTab === 'tools') setTimeout(loadMcpTools, 100);
+}
+
+function getTabContent(id) {
+  switch(id) {
+    case 'overview': return renderOverviewTab();
+    case 'health': return renderHealthTab();
+    case 'memory': return renderMemoryTab() + renderPatternChart();
+    case 'tools': return renderToolsTab();
+    case 'docker': return renderDockerTab();
+    case 'tv': return renderTVTab();
+    case 'config': return renderConfigTab();
+    case 'logs': return renderLogsTab();
+    case 'tests': return renderTestsTab();
+    default: return '';
+  }
+}
+
+function renderOverviewTab() {
+  const env = dockerData.env || {};
+  let html = '<h2>◈ System Overview</h2>';
+
+  // Environment info
+  html += '<div class="health-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">';
+  const infoItems = [
+    { icon: '🖥', name: 'Host', val: env.host || '?' },
+    { icon: '🐍', name: 'Python', val: env.python || '?' },
+    { icon: '📡', name: 'IP', val: dockerData.local_ip || '?' },
+    { icon: '🔌', name: 'Port', val: dockerData.port || '?' },
+    { icon: '🔐', name: 'Auth', val: dockerData.auth_required ? 'Yes' : 'No' },
+    { icon: '⚡', name: 'Version', val: dockerData.version || '?' },
+  ];
+  for (const item of infoItems) {
+    html += `<div class="health-item">
+      <div class="icon">${item.icon}</div>
+      <div class="info"><div class="name">${item.name}</div><div class="val">${esc(item.val)}</div></div>
+    </div>`;
+  }
+  html += '</div>';
+
+  // Pattern chart on overview too
+  const counts = patternData.hour_counts || {};
+  const maxVal = Math.max(...Object.values(counts), 1);
+  if (Object.keys(counts).length) {
+    html += '<h2 style="font-size:.8rem;margin-top:14px">📊 24h Aktivität</h2><div class="bar-chart" style="height:80px">';
+    for (let h = 0; h < 24; h++) {
+      const val = counts[h] || 0;
+      const pct = (val / maxVal * 100) || 0;
+      html += `<div class="bar" style="height:${pct}%" title="${h}:00 — ${val}"></div>`;
+    }
+    html += '</div>';
+  }
+
+  // Quick persona
+  const persona = memoryData.persona || '';
+  if (persona) {
+    html += '<h2 style="font-size:.8rem;margin-top:14px">🧬 Persönlichkeit (Kurzform)</h2>';
+    const lines = persona.split('\n').filter(l => l.trim()).slice(0, 3);
+    for (const line of lines) {
+      html += `<div class="persona-card"><div class="trait">${esc(line.replace(/^-\s*/,''))}</div></div>`;
+    }
+  }
+
+  return html;
+}
+
+async function loadMcpTools() {
+  const div = document.getElementById('mcpList');
+  if (!div) return;
+  try {
+    const r = await fetch('/api/mcp/tools');
+    const d = await r.json();
+    if (!d.tools?.length) {
+      div.innerHTML = '<div style="color:#4a7080;font-size:.75rem">Keine MCP-Tools.</div>';
+      return;
+    }
+    let html = '';
+    for (const t of d.tools.slice(0, 20)) {
+      html += `<div class="tool-item"><span class="dot dot-green"></span>
+        <div class="info"><div class="name">${esc(t.name)}</div><div class="desc">${esc((t.description||'').slice(0,80))}</div></div></div>`;
+    }
+    if (d.tools.length > 20) {
+      html += `<div class="tool-item"><span class="dot dot-gray"></span><div class="info"><div class="name">+${d.tools.length - 20} weitere</div></div></div>`;
+    }
+    div.innerHTML = html;
+  } catch(e) {
+    div.innerHTML = `<div style="color:#c05050;font-size:.75rem">Fehler: ${e.message}</div>`;
+  }
+}
+
+function renderTestsTab() {
+  let html = '<h2>⚡ Self-Tests</h2>';
+  html += '<div id="testResults"><span class="spin"></span> Tests laufen...</div>';
+  html += `<button class="btn btn-sm btn-ghost" onclick="runTests()" style="margin-top:12px">⟳ Neu testen</button>`;
+  setTimeout(runTests, 100);
+  return html;
+}
+
+async function runTests() {
+  const div = document.getElementById('testResults');
+  if (!div) { div.innerHTML = '<div style="color:#c05050">Error: container not found</div>'; return; }
+  div.innerHTML = '<span class="spin"></span> Tests laufen...';
+  try {
+    const r = await fetch('/api/tests');
+    const data = await r.json();
+
+    const rate = data.success_rate || 0;
+    const rateColor = rate >= 95 ? '#30c060' : (rate >= 80 ? '#d0a030' : '#d03030');
+
+    let html = `<div class="grid-cards" style="grid-template-columns:repeat(auto-fill,minmax(120px,1fr))">
+      <div class="stat"><div class="val" style="color:${rateColor}">${rate}%</div><div class="lbl">Success Rate</div></div>
+      <div class="stat"><div class="val" style="color:#30c060">${data.passed}</div><div class="lbl">Passed</div></div>
+      <div class="stat"><div class="val" style="color:#d03030">${data.failed}</div><div class="lbl">Failed</div></div>
+      <div class="stat"><div class="val" style="color:#4a7080">${data.skipped}</div><div class="lbl">Skipped</div></div>
+      <div class="stat"><div class="val">${data.total}</div><div class="lbl">Total</div></div>
+      <div class="stat"><div class="val">${data.duration}s</div><div class="lbl">Duration</div></div>
+    </div>`;
+
+    // Suite breakdown
+    const suites = data.suites || {};
+    html += '<div class="health-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))">';
+    for (const [name, counts] of Object.entries(suites)) {
+      const status = counts.fail === 0 ? 'dot-green' : 'dot-red';
+      html += `<div class="health-item">
+        <div class="info">
+          <div class="name"><span class="dot ${status}"></span>${name}</div>
+          <div class="val">${counts.pass} pass, ${counts.fail} fail, ${counts.skip} skip</div>
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+
+    // Detailed results
+    const results = data.results || [];
+    html += `<div style="margin-top:10px;max-height:400px;overflow-y:auto;border:1px solid #142838;border-radius:10px">`;
+    for (const r of results) {
+      const icon = r.status === 'PASS' ? '🟢' : (r.status === 'FAIL' ? '🔴' : '⚪');
+      html += `<div class="log-entry">${icon} <span class="ts">[${r.suite}]</span> <span class="msg">${esc(r.name)}${r.detail ? ' — ' + esc(r.detail) : ''}</span></div>`;
+    }
+    html += '</div>';
+
+    div.innerHTML = html;
+  } catch(e) {
+    div.innerHTML = `<div style="padding:16px;color:#c05050">Fehler: ${esc(e.message)}</div>`;
+  }
+}
+
+// ── Init ──
+
+async function init() {
+  renderTabs();
+  await fetchAll();
+  render();
+  // Periodic refresh
+  setInterval(async () => {
+    await fetchAll();
+    if (activeTab === 'health') render();
+    else if (activeTab === 'memory') render();
+    else if (activeTab === 'overview') render();
+  }, 15000);
+}
+
+init();
+</script>
+</body>
+</html>

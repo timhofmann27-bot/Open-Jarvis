@@ -1,7 +1,7 @@
 {
-  "enabled": true,
-  "weather_interval_min": 120,
-  "news_interval_min": 180,
+  "enabled": false,
+  "weather_interval_min": 60,
+  "news_interval_min": 60,
   "greeting_enabled": true,
-  "weather_city": "Berlin"
+  "weather_city": "Vehlefanz"
 }

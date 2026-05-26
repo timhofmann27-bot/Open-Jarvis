@@ -14,7 +14,7 @@ from remote_server import get_local_ip
 SSDP_ADDRESS = ("239.255.255.250", 1900)
 SSDP_DISCOVER = "M-SEARCH * HTTP/1.1\r\nHost: 239.255.255.250:1900\r\nMan: \"ssdp:discover\"\r\nMX: 2\r\nST: urn:dial-multiscreen-org:service:dial:1\r\n\r\n"
 DIAL_PORT = 8008
-DEFAULT_PATH = "/mirror"
+DEFAULT_PATH = "/jarvis"
 DEFAULT_PORT = 8080
 
 
@@ -122,22 +122,25 @@ def _best_device(devices: list[dict[str, Any]]) -> dict[str, Any] | None:
 
 def connect_tv(parameters: dict[str, Any], player: Any = None) -> str:
     target_url = f"http://{get_local_ip()}:{DEFAULT_PORT}{DEFAULT_PATH}"
-    server_message = "Der TV-Mirror ist bereit."
+
+    # 1. Open Windows Wireless Display dialog (Win+K)
+    ws_ok = False
+    try:
+        from actions.bt_control import open_wireless_display
+        ws_ok = open_wireless_display()
+    except Exception:
+        pass
+
+    # 2. Open the 3D Jarvis page in browser
+    import webbrowser
+    webbrowser.open(target_url)
+
+    if ws_ok:
+        msg = "Ich habe die Drahtlosbildschirm-Verbindung geöffnet (Win+K). Verbinde den TV, dann siehst du den 3D Iron Man."
+    else:
+        msg = f"Öffne die Drahtlosbildschirm-Verbindung mit Win+K und navigiere zu {target_url}."
 
     if player:
-        player.write_log(f"[TV] Trying to connect TV at {target_url}")
+        player.write_log(f"[TV] {msg}")
 
-    devices = discover_tvs(timeout=3.0)
-    if not devices:
-        return f"{server_message} Ich konnte kein Smart-TV automatisch finden. Öffne diese URL auf dem Fernseher: {target_url}."
-
-    best = _best_device(devices)
-    ip = best["ip"]
-    name = best.get("friendly_name", "Smart-TV")
-    if player:
-        player.write_log(f"[TV] Gefundenes Gerät: {name} ({ip})")
-
-    if _attempt_dial_launch(ip, target_url):
-        return f"{server_message} Ich habe {name} im WLAN gefunden und den TV-Mirror an {target_url} gesendet."
-
-    return f"{server_message} Ich habe {name} gefunden, konnte ihn aber nicht automatisch aufrufen. Öffne {target_url} manuell auf dem TV."
+    return msg

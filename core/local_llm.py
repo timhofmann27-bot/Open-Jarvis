@@ -6,7 +6,7 @@ from datetime import datetime
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROMPT_PATH = BASE_DIR / "core" / "prompt.txt"
 
-DEFAULT_MODEL = "llama3.1:8b"
+DEFAULT_MODEL = "tinyllama"
 
 
 def _load_system_prompt() -> str:

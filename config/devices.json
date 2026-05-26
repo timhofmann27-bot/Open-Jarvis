@@ -1,0 +1,17 @@
+{
+  "last_tv": {
+    "ip": "94:b3:f7:9a:2d:98",
+    "name": "Stube",
+    "bt_address": "Smart TV Pro"
+  },
+  "wake_method": "voice",
+  "wake_threshold": 1,
+  "wake_enabled": false,
+  "bluetooth": {
+    "[WOL] TV": {
+      "address": "45:3B:08:8B:77:D1",
+      "type": "tv",
+      "last_seen": 1779692897.937186
+    }
+  }
+}

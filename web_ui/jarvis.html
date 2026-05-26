@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>JARVIS - Iron Man Interface</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#000; overflow:hidden; font-family:'Segoe UI',sans-serif; color:#fff; }
+#canvas-container { position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:1; }
+.hud-top-right { position:fixed; top:20px; right:30px; z-index:10; text-align:right; }
+#status { font-size:14px; color:#0af; opacity:0.7; }
+#clock { font-size:32px; font-weight:200; color:#0af; letter-spacing:3px; text-shadow:0 0 20px rgba(0,170,255,0.3); }
+#date { font-size:12px; color:#668; margin-top:4px; letter-spacing:2px; text-transform:uppercase; }
+#subtitle { position:fixed; bottom:100px; left:50%; transform:translateX(-50%); z-index:10;
+  font-size:28px; color:#0af; text-shadow:0 0 20px #0af,0 0 40px #06f;
+  text-align:center; max-width:80%; opacity:0; transition:opacity 0.3s; font-weight:300;
+  letter-spacing:2px; }
+#connection-status { position:fixed; top:20px; left:30px; z-index:10; font-size:13px;
+  color:#555; display:flex; align-items:center; gap:8px; }
+.dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+.dot.green { background:#0f0; box-shadow:0 0 10px #0f0; }
+.dot.red { background:#f00; box-shadow:0 0 10px #f00; }
+.dot.yellow { background:#ff0; box-shadow:0 0 10px #ff0; }
+#hud-text { position:fixed; top:120px; right:30px; z-index:10; font-size:12px; color:#0af;
+  opacity:0.4; text-align:right; line-height:1.6; font-family:'Courier New',monospace; }
+
+/* Scan line overlay */
+#scanlines { position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:2;
+  pointer-events:none; background:repeating-linear-gradient(
+    0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px
+  ); }
+
+/* Audio visualizer */
+#visualizer { position:fixed; bottom:0; left:0; width:100vw; height:120px; z-index:2;
+  pointer-events:none; opacity:0; transition:opacity 0.5s; }
+#visualizer.active { opacity:0.3; }
+
+/* Bottom status bar */
+#bottom-bar { position:fixed; bottom:40px; left:50%; transform:translateX(-50%); z-index:3;
+  font-size:11px; color:#445; letter-spacing:3px; font-family:'Courier New',monospace;
+  text-transform:uppercase; }
+#bottom-bar span { margin:0 15px; }
+
+/* Hologram data panels */
+#data-panel { position:fixed; bottom:160px; left:40px; z-index:10;
+  font-size:11px; color:#0af; opacity:0; transition:opacity 0.5s;
+  font-family:'Courier New',monospace; line-height:1.8; }
+#data-panel.active { opacity:0.5; }
+#data-panel .label { color:#668; }
+#data-panel .value { color:#0af; }
+
+/* Subtle vignette */
+#vignette { position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:2;
+  pointer-events:none;
+  background:radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.4) 100%); }
+</style>
+</head>
+<body>
+<div id="canvas-container"></div>
+<div class="hud-top-right">
+  <div id="clock">--:--</div>
+  <div id="date">---</div>
+  <div id="status">INITIALIZING</div>
+</div>
+<div id="connection-status"><span class="dot red" id="dot"></span><span id="ws-label">Offline</span></div>
+<div id="subtitle"></div>
+<div id="data-panel">
+  <div><span class="label">LINK:</span> <span class="value" id="dp-link">DOWN</span></div>
+  <div><span class="label">AUDIO:</span> <span class="value" id="dp-audio">--</span></div>
+  <div><span class="label">PROC:</span> <span class="value" id="dp-proc">IDLE</span></div>
+</div>
+<div id="hud-text">JARVIS v4.0<br>ARC REACTOR: ONLINE<br>VOICE SYNTH: STANDBY</div>
+<canvas id="visualizer"></canvas>
+<div id="bottom-bar"><span>SYSTEM NOMINAL</span><span>JARVIS 4.0</span><span>ARC REACTOR</span></div>
+<div id="vignette"></div>
+<div id="scanlines"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+
+// ── Scene Setup ──
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0a1a);
+scene.fog = new THREE.Fog(0x0a0a1a, 8, 18);
+
+const camera = new THREE.PerspectiveCamera(30, window.innerWidth/window.innerHeight, 0.1, 30);
+camera.position.set(0, 0.5, 5);
+camera.lookAt(0, 0.2, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight), 0.6, 0.3, 0.2
+);
+composer.addPass(bloomPass);
+
+// ── Lighting ──
+const ambient = new THREE.AmbientLight(0x222244, 0.5);
+scene.add(ambient);
+
+const keyLight = new THREE.DirectionalLight(0xff8844, 2);
+keyLight.position.set(3, 4, 5);
+scene.add(keyLight);
+
+const fillLight = new THREE.DirectionalLight(0x4488ff, 0.8);
+fillLight.position.set(-3, 1, 3);
+scene.add(fillLight);
+
+const rimLight = new THREE.DirectionalLight(0x00aaff, 0.5);
+rimLight.position.set(0, -2, -4);
+scene.add(rimLight);
+
+const pointLight = new THREE.PointLight(0x00aaff, 1, 8);
+pointLight.position.set(0, 0.5, 3);
+scene.add(pointLight);
+
+// ── Create Stylized Iron Man Helmet ──
+const helmet = new THREE.Group();
+
+// Head dome - red metallic
+const domeGeo = new THREE.SphereGeometry(0.75, 32, 24, 0, Math.PI*2, 0, Math.PI*0.6);
+const domeMat = new THREE.MeshStandardMaterial({
+  color: 0xcc2233, metalness: 0.85, roughness: 0.25, envMapIntensity: 1.0
+});
+const dome = new THREE.Mesh(domeGeo, domeMat);
+dome.scale.set(1, 0.9, 0.85);
+helmet.add(dome);
+
+// Top of head - rounder
+const topGeo = new THREE.SphereGeometry(0.72, 32, 24, 0, Math.PI*2, Math.PI*0.55, Math.PI*0.15);
+const topMat = new THREE.MeshStandardMaterial({
+  color: 0xcc2233, metalness: 0.85, roughness: 0.25
+});
+const top = new THREE.Mesh(topGeo, topMat);
+top.scale.set(1, 0.95, 0.85);
+top.position.y = 0.35;
+helmet.add(top);
+
+// Faceplate - gold
+const faceMat = new THREE.MeshStandardMaterial({
+  color: 0xdaa520, metalness: 0.9, roughness: 0.15, envMapIntensity: 1.2
+});
+const faceGeo = new THREE.SphereGeometry(0.73, 32, 24, -0.4, 0.8, 0.1, 0.4);
+const face = new THREE.Mesh(faceGeo, faceMat);
+face.scale.set(0.95, 0.85, 0.8);
+face.position.set(0, 0.05, 0.35);
+helmet.add(face);
+
+// Lower jaw - gold
+const jawGeo = new THREE.BoxGeometry(0.5, 0.2, 0.4);
+const jaw = new THREE.Mesh(jawGeo, faceMat);
+jaw.position.set(0, -0.4, 0.6);
+jaw.rotation.x = 0.15;
+helmet.add(jaw);
+
+// Jaw side plates - red
+const jawSideMat = new THREE.MeshStandardMaterial({ color: 0xcc2233, metalness: 0.85, roughness: 0.25 });
+for (let side of [-1, 1]) {
+  const js = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.25, 0.35), jawSideMat);
+  js.position.set(side * 0.4, -0.35, 0.5);
+  helmet.add(js);
+}
+
+// Cheek/ear muff parts - red
+for (let side of [-1, 1]) {
+  const cheek = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 12), domeMat);
+  cheek.position.set(side * 0.7, 0.05, 0.35);
+  cheek.scale.set(0.8, 1.2, 0.6);
+  helmet.add(cheek);
+}
+
+// Neck base - gold ring
+const neckGeo = new THREE.CylinderGeometry(0.5, 0.6, 0.15, 24);
+const neckMat = new THREE.MeshStandardMaterial({ color: 0xdaa520, metalness: 0.9, roughness: 0.15 });
+const neck = new THREE.Mesh(neckGeo, neckMat);
+neck.position.set(0, -0.6, 0);
+helmet.add(neck);
+
+// ── Glowing Eyes ──
+const eyeMat = new THREE.MeshStandardMaterial({
+  color: 0x00ccff, emissive: 0x00ccff, emissiveIntensity: 3,
+  transparent: true, opacity: 1
+});
+for (let side of [-1, 1]) {
+  const socket = new THREE.Mesh(
+    new THREE.BoxGeometry(0.18, 0.06, 0.03),
+    new THREE.MeshStandardMaterial({ color: 0x111122, metalness: 0.5, roughness: 0.8 })
+  );
+  socket.position.set(side * 0.22, 0.18, 0.82);
+  helmet.add(socket);
+
+  const eye = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.035, 0.02), eyeMat);
+  eye.position.set(side * 0.22, 0.18, 0.84);
+  helmet.add(eye);
+  if (side === 1) helmet.userData.eyeR = eye;
+  else helmet.userData.eyeL = eye;
+}
+
+// Visor glow line (triangle shape connecting eyes)
+const visorMat = new THREE.MeshStandardMaterial({
+  color: 0x00ccff, emissive: 0x00ccff, emissiveIntensity: 0.5,
+  transparent: true, opacity: 0.3
+});
+const visorShape = new THREE.Shape();
+visorShape.moveTo(-0.3, 0);
+visorShape.lineTo(0, 0.15);
+visorShape.lineTo(0.3, 0);
+visorShape.lineTo(0.25, -0.02);
+visorShape.lineTo(0, 0.1);
+visorShape.lineTo(-0.25, -0.02);
+visorShape.closePath();
+const visorGeo = new THREE.ShapeGeometry(visorShape);
+const visor = new THREE.Mesh(visorGeo, visorMat);
+visor.position.set(0, 0.16, 0.82);
+visor.scale.set(0.9, 1, 1);
+helmet.add(visor);
+
+// ── Arc Reactor (Chest) ──
+const reactorGroup = new THREE.Group();
+reactorGroup.position.set(0, -0.15, 0.85);
+
+const ringGeo = new THREE.TorusGeometry(0.18, 0.025, 16, 32);
+const ringMat = new THREE.MeshStandardMaterial({
+  color: 0x00aaff, emissive: 0x00aaff, emissiveIntensity: 2, metalness: 0.9, roughness: 0.1
+});
+const ring = new THREE.Mesh(ringGeo, ringMat);
+reactorGroup.add(ring);
+
+const coreMat = new THREE.MeshStandardMaterial({
+  color: 0x00ccff, emissive: 0x00ccff, emissiveIntensity: 4, transparent: true, opacity: 0.9
+});
+const core = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), coreMat);
+reactorGroup.add(core);
+
+const innerRing = new THREE.Mesh(
+  new THREE.TorusGeometry(0.12, 0.01, 8, 24),
+  new THREE.MeshStandardMaterial({ color: 0x00eeff, emissive: 0x00eeff, emissiveIntensity: 3, transparent: true, opacity: 0.6 })
+);
+reactorGroup.add(innerRing);
+
+const crossMat = new THREE.MeshStandardMaterial({ color: 0x00ccff, emissive: 0x00ccff, emissiveIntensity: 3 });
+const hBar = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.01, 0.01), crossMat);
+const vBar = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.2, 0.01), crossMat);
+reactorGroup.add(hBar);
+reactorGroup.add(vBar);
+
+helmet.add(reactorGroup);
+helmet.userData.reactor = reactorGroup;
+
+helmet.position.set(0, 0.2, 0);
+scene.add(helmet);
+
+// ── Holographic Rings ──
+const rings = [];
+const ringColors = [0x0066ff, 0x00aaff, 0x0088ff];
+for (let i = 0; i < 3; i++) {
+  const rGeo = new THREE.TorusGeometry(1.2 + i * 0.4, 0.008, 8, 64);
+  const rMat = new THREE.MeshStandardMaterial({
+    color: ringColors[i], emissive: ringColors[i], emissiveIntensity: 0.3,
+    transparent: true, opacity: 0.2 - i * 0.04
+  });
+  const r = new THREE.Mesh(rGeo, rMat);
+  r.rotation.x = Math.PI * 0.2 + i * 0.1;
+  r.rotation.y = i * 0.5;
+  r.position.y = 0.3;
+  rings.push(r);
+  scene.add(r);
+}
+
+// ── Particles ──
+const particleCount = 2000;
+const positions = new Float32Array(particleCount * 3);
+const sizes = new Float32Array(particleCount);
+const velocities = [];
+for (let i = 0; i < particleCount; i++) {
+  const theta = Math.random() * Math.PI * 2;
+  const phi = Math.acos(2 * Math.random() - 1);
+  const r = 2 + Math.random() * 5;
+  positions[i*3] = r * Math.sin(phi) * Math.cos(theta);
+  positions[i*3+1] = r * Math.cos(phi) * 0.6;
+  positions[i*3+2] = r * Math.sin(phi) * Math.sin(theta);
+  sizes[i] = 0.01 + Math.random() * 0.03;
+  velocities.push({
+    x: (Math.random() - 0.5) * 0.002,
+    y: (Math.random() - 0.5) * 0.002,
+    z: (Math.random() - 0.5) * 0.002
+  });
+}
+const particleGeo = new THREE.BufferGeometry();
+particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+particleGeo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+const particleMat = new THREE.PointsMaterial({
+  color: 0x4488ff, size: 0.015, transparent: true, opacity: 0.4,
+  blending: THREE.AdditiveBlending, depthWrite: false
+});
+const particles = new THREE.Points(particleGeo, particleMat);
+scene.add(particles);
+
+// ── HUD Grid Lines ──
+const gridHelper = new THREE.GridHelper(8, 20, 0x0066ff, 0x0033aa);
+gridHelper.position.y = -1.2;
+gridHelper.material.transparent = true;
+gridHelper.material.opacity = 0.15;
+scene.add(gridHelper);
+
+// ── Data Ring (outer decorative ring) ──
+const dataRingGeo = new THREE.TorusGeometry(1.0, 0.004, 4, 80);
+const dataRingMat = new THREE.MeshBasicMaterial({
+  color: 0x0066ff, transparent: true, opacity: 0.08
+});
+const dataRing = new THREE.Mesh(dataRingGeo, dataRingMat);
+dataRing.rotation.x = Math.PI * 0.3;
+dataRing.position.y = 0.05;
+scene.add(dataRing);
+
+const dataRing2 = dataRing.clone();
+dataRing2.material = dataRingMat.clone();
+dataRing2.material.opacity = 0.05;
+dataRing2.scale.set(1.4, 1.4, 1.4);
+dataRing2.rotation.x = Math.PI * -0.2;
+scene.add(dataRing2);
+
+// ── Audio / State ──
+let analyzerNode = null;
+let audioContext = null;
+let ws = null;
+let isSpeaking = false;
+let mouthOpen = 0;
+let targetMouthOpen = 0;
+let audioAmplitude = 0;
+
+// ── Visualizer Canvas ──
+const vizCanvas = document.getElementById('visualizer');
+const vizCtx = vizCanvas.getContext('2d');
+function resizeViz() {
+  vizCanvas.width = window.innerWidth;
+  vizCanvas.height = 120;
+}
+resizeViz();
+window.addEventListener('resize', resizeViz);
+
+function drawVisualizer(amplitude) {
+  const w = vizCanvas.width;
+  const h = vizCanvas.height;
+  vizCtx.clearRect(0, 0, w, h);
+
+  const barCount = 64;
+  const barW = w / barCount;
+  const centerY = h / 2;
+
+  for (let i = 0; i < barCount; i++) {
+    const t = i / barCount;
+    const barH = Math.sin(t * Math.PI) * amplitude * h * 0.8;
+    const lightness = 30 + amplitude * 60;
+    const hue = 200 + t * 40;
+    vizCtx.fillStyle = `hsla(${hue}, 80%, ${lightness}%, 0.6)`;
+    vizCtx.fillRect(i * barW, centerY - barH / 2, barW - 1, barH);
+  }
+}
+
+// ── WebSocket ──
+function connectWS() {
+  const wsUrl = `ws://${location.hostname}:8765`;
+  document.getElementById('ws-label').textContent = 'Connecting...';
+  document.getElementById('dot').className = 'dot yellow';
+
+  ws = new WebSocket(wsUrl);
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = () => {
+    document.getElementById('ws-label').textContent = 'JARVIS Online';
+    document.getElementById('dot').className = 'dot green';
+    document.getElementById('status').textContent = 'STANDBY';
+    document.getElementById('dp-link').textContent = 'ESTABLISHED';
+  };
+
+  ws.onmessage = async (event) => {
+    if (typeof event.data === 'string') {
+      try {
+        const msg = JSON.parse(event.data);
+        handleEvent(msg);
+      } catch(e) {
+        console.error('Invalid JSON:', e);
+      }
+    } else {
+      const buf = new Uint8Array(event.data);
+      if (buf[0] === 0x41) {
+        const len = (buf[1] << 24) | (buf[2] << 16) | (buf[3] << 8) | buf[4];
+        const audioData = buf.slice(5, 5 + len);
+        playAudioChunk(audioData.buffer);
+      }
+    }
+  };
+
+  ws.onclose = () => {
+    document.getElementById('ws-label').textContent = 'Offline';
+    document.getElementById('dot').className = 'dot red';
+    document.getElementById('status').textContent = 'DISCONNECTED';
+    document.getElementById('dp-link').textContent = 'DOWN';
+    setTimeout(connectWS, 3000);
+  };
+
+  ws.onerror = () => { ws.close(); };
+}
+
+// ── Audio Playback ──
+async function initAudio() {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+    analyzerNode = audioContext.createAnalyser();
+    analyzerNode.fftSize = 256;
+  }
+  if (audioContext.state === 'suspended') {
+    await audioContext.resume();
+  }
+}
+
+function playAudioChunk(buffer) {
+  if (!audioContext) return;
+  audioContext.decodeAudioData(buffer, (audioBuf) => {
+    const source = audioContext.createBufferSource();
+    source.buffer = audioBuf;
+    source.connect(analyzerNode);
+    analyzerNode.connect(audioContext.destination);
+    source.start();
+    source.onended = () => source.disconnect();
+  }, () => {
+    // Raw PCM fallback
+    const pcmBuf = new Int16Array(buffer);
+    const floatBuf = new Float32Array(pcmBuf.length);
+    for (let i = 0; i < pcmBuf.length; i++) floatBuf[i] = pcmBuf[i] / 32768;
+    const audioBuf = audioContext.createBuffer(1, floatBuf.length, 24000);
+    audioBuf.getChannelData(0).set(floatBuf);
+    const source = audioContext.createBufferSource();
+    source.buffer = audioBuf;
+    source.connect(analyzerNode);
+    analyzerNode.connect(audioContext.destination);
+    source.start();
+  });
+}
+
+// ── Events ──
+function handleEvent(msg) {
+  switch (msg.event) {
+    case 'speaking_start':
+      isSpeaking = true;
+      document.getElementById('status').textContent = 'SPEAKING';
+      document.getElementById('dp-proc').textContent = 'AUDIO OUT';
+      document.getElementById('visualizer').classList.add('active');
+      document.getElementById('data-panel').classList.add('active');
+      initAudio();
+      break;
+    case 'speaking_end':
+      isSpeaking = false;
+      document.getElementById('status').textContent = 'STANDBY';
+      document.getElementById('dp-proc').textContent = 'IDLE';
+      document.getElementById('subtitle').style.opacity = '0';
+      document.getElementById('visualizer').classList.remove('active');
+      document.getElementById('data-panel').classList.remove('active');
+      break;
+    case 'subtitle':
+      const el = document.getElementById('subtitle');
+      el.textContent = msg.data.text || '';
+      el.style.opacity = '1';
+      break;
+  }
+}
+
+// ── Clock Update ──
+function updateClock() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  document.getElementById('clock').textContent = `${hh}:${mm}:${ss}`;
+
+  const days = ['SONNTAG','MONTAG','DIENSTAG','MITTWOCH','DONNERSTAG','FREITAG','SAMSTAG'];
+  const months = ['JAN','FEB','MAR','APR','MAI','JUN','JUL','AUG','SEP','OKT','NOV','DEZ'];
+  document.getElementById('date').textContent =
+    `${days[now.getDay()]} ${now.getDate()}. ${months[now.getMonth()]} ${now.getFullYear()}`;
+}
+
+// ── Lip Sync ──
+function updateLipSync() {
+  if (isSpeaking && analyzerNode) {
+    const data = new Uint8Array(analyzerNode.frequencyBinCount);
+    analyzerNode.getByteFrequencyData(data);
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) sum += data[i];
+    const avg = sum / data.length / 255;
+    audioAmplitude += (avg - audioAmplitude) * 0.15;
+    targetMouthOpen = Math.min(avg * 2, 1);
+  } else {
+    audioAmplitude *= 0.95;
+    targetMouthOpen = 0;
+  }
+  mouthOpen += (targetMouthOpen - mouthOpen) * 0.1;
+
+  jaw.position.y = -0.4 - mouthOpen * 0.06;
+  jaw.scale.y = 1 + mouthOpen * 0.1;
+
+  const vi = 0.3 + mouthOpen * 2;
+  visorMat.emissiveIntensity = vi;
+  visorMat.opacity = Math.min(0.3 + mouthOpen * 0.5, 0.8);
+
+  const eyeIntensity = 3 + mouthOpen * 4;
+  eyeMat.emissiveIntensity = eyeIntensity;
+
+  document.getElementById('dp-audio').textContent =
+    `${(audioAmplitude * 100).toFixed(0)}%`;
+
+  drawVisualizer(audioAmplitude);
+}
+
+// ── Animation Loop ──
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  updateClock();
+
+  // Helmet float
+  helmet.position.y = 0.2 + Math.sin(t * 0.5) * 0.03;
+  helmet.rotation.z = Math.sin(t * 0.3) * 0.02;
+  helmet.rotation.x = Math.sin(t * 0.4) * 0.01;
+
+  // Reactor pulse
+  const pulse = 3 + Math.sin(t * 2) * 1.5;
+  coreMat.emissiveIntensity = pulse;
+  ringMat.emissiveIntensity = 1.5 + Math.sin(t * 2 + 1) * 0.8;
+
+  // Rings rotation
+  rings.forEach((r, i) => {
+    r.rotation.y += 0.003 * (1 + i * 0.3);
+    r.rotation.x += 0.001 * (1 + i * 0.2);
+  });
+
+  // Data rings
+  dataRing.rotation.z += 0.002;
+  dataRing2.rotation.z -= 0.001;
+
+  // Particles slow rotation + individual motion
+  particles.rotation.y += 0.0005;
+  particles.rotation.x += 0.0003;
+
+  // Lip sync
+  updateLipSync();
+
+  composer.render();
+}
+
+// ── Start ──
+connectWS();
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

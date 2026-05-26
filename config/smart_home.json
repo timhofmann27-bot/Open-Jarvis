@@ -1,14 +1,11 @@
 {
   "hue": {
-    "bridge_ip": "192.168.1.100",
+    "bridge_ip": "",
     "api_key": ""
   },
-  "shelly": {
-    "living_room_light": "192.168.1.101",
-    "bedroom_plug": "192.168.1.102"
-  },
+  "shelly": {},
   "homeassistant": {
-    "url": "http://192.168.1.200:8123",
+    "url": "",
     "token": ""
   }
 }

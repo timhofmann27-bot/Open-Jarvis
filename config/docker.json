@@ -1,0 +1,4 @@
+{
+  "socket_path": "npipe:////./pipe/docker_engine",
+  "tls_verify": false
+}

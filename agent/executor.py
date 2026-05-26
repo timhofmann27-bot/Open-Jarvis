@@ -254,6 +254,12 @@ def _call_tool(tool: str, parameters: dict, speak: Callable | None) -> str:
         return flight_finder(parameters=parameters, player=None, speak=speak) or "Done."
 
     else:
+        try:
+            from core.mcp_bridge import is_mcp_tool, call_mcp_tool
+            if is_mcp_tool(tool):
+                return call_mcp_tool(tool, parameters)
+        except Exception:
+            pass
         print(f"[Executor] ⚠️ Unknown tool '{tool}' — falling back to generated_code")
         return _run_generated_code(f"Accomplish this task: {parameters}", speak=speak)
 
