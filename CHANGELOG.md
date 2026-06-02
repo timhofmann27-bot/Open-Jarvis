@@ -12,6 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Contributing guidelines
 - Architecture documentation
 - Development requirements file
+- Code quality infrastructure (ruff, mypy, pre-commit, Makefile)
+- Docker deployment (Dockerfile, docker-compose, .env.example)
+- Migrated `file_processor.py` from deprecated `google.generativeai` to `google.genai`
+
+### Changed
+- **BREAKING**: Removed deprecated `google-generativeai` package dependency
+- `file_processor.py` uses new `_generate()` helper for all Gemini calls (12 sites)
+
+### Fixed
+- Eliminated `FutureWarning` from `google.generativeai` deprecation
 
 ## [1.0.0] - 2026-06-02
 

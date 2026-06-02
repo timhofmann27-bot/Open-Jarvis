@@ -159,6 +159,21 @@ class TestSuite:
             except Exception as e:
                 self._add("actions", f.stem, FAIL, str(e)[:120])
 
+            # file_processor migration check
+            if f.stem == "file_processor":
+                src = f.read_text(encoding="utf-8")
+                if "google.generativeai" in src:
+                    self._add("actions", f"{f.stem}.migration", FAIL, "Deprecated 'google.generativeai' import present")
+                elif "from google import genai" not in src and "google.genai" not in src:
+                    self._add("actions", f"{f.stem}.migration", FAIL, "New 'google.genai' import missing")
+                else:
+                    if not hasattr(mod, "_generate"):
+                        self._add("actions", f"{f.stem}._generate", FAIL, "_generate helper missing")
+                    elif hasattr(mod, "_gemini_client"):
+                        self._add("actions", f"{f.stem}._gemini_client", FAIL, "Deprecated _gemini_client still present")
+                    else:
+                        self._add("actions", f"{f.stem}.migration", PASS, "Migrated to google.genai SDK")
+
     def _test_network(self):
         """Test basic network connectivity."""
         import socket
