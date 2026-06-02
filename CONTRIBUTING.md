@@ -35,7 +35,58 @@ cd Open-Jarvis
 pip install -r requirements-dev.txt
 cp config/api_keys.json.example config/api_keys.json
 # Edit config/api_keys.json
+pre-commit install
 ```
+
+## Code Quality
+
+This project enforces code quality through multiple tools, all configured in `pyproject.toml`:
+
+| Tool | Purpose | Command |
+|------|---------|---------|
+| **ruff** | Fast linter + formatter (replaces flake8, isort, black) | `ruff check .` / `ruff format .` |
+| **black** | Code formatter (backup) | `black .` |
+| **mypy** | Static type checker | `mypy core actions` |
+| **pre-commit** | Git hooks that run all of the above | `pre-commit run --all-files` |
+| **Makefile** | Common commands (see `make help`) | `make lint`, `make test`, etc. |
+
+See [docs/DEVELOPING.md](docs/DEVELOPING.md) for the full development guide.
+
+### Style Guide
+
+- **Python 3.12+** syntax (use `dict[str, int]` not `Dict[str, int]`)
+- **Type hints** for new public functions
+- **Docstrings** for modules, classes, public functions (Google or NumPy style)
+- **Line length**: 120 chars
+- **Quotes**: double quotes for strings
+- **Imports**: sorted by isort (handled automatically by ruff)
+- **Naming**: `snake_case` for functions/vars, `PascalCase` for classes, `UPPER_SNAKE` for constants
+
+### Pre-Commit Hooks
+
+Pre-commit hooks run automatically on `git commit`. To run them manually:
+
+```bash
+pre-commit run --all-files
+```
+
+Hooks include:
+- File hygiene (whitespace, line endings, large files)
+- Secret detection (prevents API keys from being committed)
+- Python linting (ruff)
+- Python formatting (ruff + black)
+- Markdown linting
+- YAML linting
+- Shell script linting
+- Self-test suite (manual stage)
+
+### CI Checks
+
+Every PR runs:
+1. **Lint** — ruff check + format
+2. **Type Check** — mypy on core/ and actions/
+3. **Secret Scan** — TruffleHog
+4. **Self-Tests** — 94 tests on Windows + Linux
 
 ## Project Structure
 
@@ -51,12 +102,13 @@ cp config/api_keys.json.example config/api_keys.json
 
 ## Coding Standards
 
-- Python 3.12+
-- Follow PEP 8
-- Use type hints for new code
-- Add docstrings to public functions
-- Keep functions focused and small
-- Use async/await consistently in main.py
+- **Python 3.12+** — use modern syntax (e.g. `dict[str, int]`, `match` statements, union types with `|`)
+- **PEP 8** with 120-char lines (configured in ruff)
+- **Type hints** for new public functions
+- **Docstrings** for modules, classes, public functions
+- **Async/await** consistently in `main.py`
+- **No new global state** — pass dependencies explicitly
+- **Test new code** — add a test case in `core/test_suite.py`
 
 ## Adding a New Tool
 

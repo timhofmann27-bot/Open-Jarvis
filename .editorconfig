@@ -1,0 +1,30 @@
+# EditorConfig: https://editorconfig.org
+# Helps maintain consistent coding styles across editors
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{yml,yaml,toml}]
+indent_size = 2
+
+[*.{md,markdown}]
+trim_trailing_whitespace = false
+
+[*.{json,html,css,js}]
+indent_size = 2
+
+[*.{html,htm}]
+end_of_line = lf
+
+[*.sh]
+end_of_line = lf
+
+[Makefile]
+indent_style = tab
