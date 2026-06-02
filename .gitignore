@@ -1,16 +1,49 @@
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.egg-info/
 *.bak
+*.swp
+.DS_Store
+
+# Configs with secrets
 config/api_keys.json
 config/telegram.json
 config/obsidian.json
 config/email.json
+
+# Runtime data
 memory/
 desktop/
 *.log
+listener.log
 Tool_List.txt
+
+# Personal launchers / clients
 start.bat
+start_listener.vbs
 remote_client.py
-*.egg-info/
+or_client.py
+setup.py
+setup_autostart.py
+
+# IDE
 .vscode/
+.idea/
 *.code-workspace
+
+# OS
+Thumbs.db
+desktop.ini
+
+# Build
+dist/
+build/
+*.spec
+
+# venv
+venv/
+env/
+ENV/
+.venv/

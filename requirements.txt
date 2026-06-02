@@ -1,23 +1,61 @@
-sounddevice
-google-genai
-google-generativeai
-pillow
-requests
-beautifulsoup4
-duckduckgo-search
-playwright
-pyautogui
-pyperclip
-pygetwindow
-opencv-python
-numpy
-mss
-psutil
-comtypes
-pycaw
-win10toast
-send2trash
-youtube-transcript-api
-pywinauto
-pyaudio
-websockets
+# Open-Jarvis Runtime Dependencies
+
+# Core audio + AI
+sounddevice>=0.4.6
+google-genai>=1.0.0
+pillow>=10.0.0
+pyaudio>=0.2.14
+
+# Audio + video processing
+numpy>=1.24
+opencv-python>=4.8
+mss>=9.0
+comtypes>=1.2
+pycaw>=20230407
+psutil>=5.9
+
+# Web + browser
+requests>=2.31
+beautifulsoup4>=4.12
+duckduckgo-search>=4.0
+playwright>=1.40
+
+# GUI automation
+pyautogui>=0.9.54
+pyperclip>=1.8
+pygetwindow>=0.0.9
+pywinauto>=0.6.6
+win10toast>=0.9
+send2trash>=1.8
+
+# Media
+ytmusicapi>=1.0
+youtube-transcript-api>=0.6
+
+# Networking
+websockets>=12.0
+bleak>=0.21
+
+# LLM + memory
+ollama>=0.1
+chromadb>=0.4
+onnxruntime>=1.16
+sentence-transformers>=2.2
+
+# Productivity integrations
+python-telegram-bot>=20.7
+spotipy>=2.23
+PyGithub>=2.1
+
+# STT / TTS
+openwakeword>=0.5
+SpeechRecognition>=3.10
+
+# MCP
+mcp>=0.1
+
+# Docker
+docker>=7.0
+
+# Async
+asyncio-throttle>=1.0.2
