@@ -36,34 +36,38 @@ Open-Jarvis is a completely local, voice-controlled AI assistant inspired by Ton
 
 ## 🚀 Quick Start
 
+### Option 1: Native (Windows, full features)
+
 ```bash
-# Clone
 git clone https://github.com/timhofmann27-bot/Open-Jarvis.git
 cd Open-Jarvis
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Configure API key
 cp config/api_keys.json.example config/api_keys.json
 # Edit config/api_keys.json with your Gemini API key
-
-# Install Ollama (for local fallback)
-# https://ollama.com/download
-ollama pull tinyllama
-
-# Launch
 python main.py
 ```
 
-For a detailed walkthrough see **[docs/SETUP.md](docs/SETUP.md)**.
+### Option 2: Docker (any OS, backend only)
+
+```bash
+git clone https://github.com/timhofmann27-bot/Open-Jarvis.git
+cd Open-Jarvis
+cp .env.example .env
+# Edit .env with your API keys
+docker compose up -d
+# Open http://localhost:8080
+```
+
+For a detailed walkthrough see **[docs/SETUP.md](docs/SETUP.md)** or **[docs/DOCKER.md](docs/DOCKER.md)**.
 
 ### Prerequisites
 
-- **Python 3.12+**
-- **Windows 10/11** (some features Windows-specific)
-- **Ollama** (optional, for local LLM fallback)
-- **Gemini API key** from [Google AI Studio](https://aistudio.google.com/apikey)
+| Component | Native | Docker |
+|-----------|--------|--------|
+| Python 3.12+ | ✅ Required | ❌ Bundled |
+| Windows 10/11 | ✅ Full features | ❌ Backend only |
+| Ollama | Optional (local LLM) | ✅ Bundled |
+| Gemini API key | From [AI Studio](https://aistudio.google.com/apikey) | Same |
 
 ---
 
@@ -146,9 +150,11 @@ Open-Jarvis can connect to MCP (Model Context Protocol) servers running in Docke
 
 ## 📚 Documentation
 
-- **[Setup Guide](docs/SETUP.md)** — Detailed installation walkthrough
+- **[Setup Guide](docs/SETUP.md)** — Detailed native installation walkthrough
+- **[Docker Setup](docs/DOCKER.md)** — Container deployment guide
 - **[Architecture](docs/ARCHITECTURE.md)** — How it works internally
 - **[Tools Reference](docs/TOOLS.md)** — All 57+ tools explained
+- **[Development Guide](docs/DEVELOPING.md)** — Code quality, testing, contribution workflow
 
 ## 🤝 Contributing
 

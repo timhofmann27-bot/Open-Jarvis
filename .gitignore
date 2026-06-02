@@ -28,6 +28,11 @@ or_client.py
 setup.py
 setup_autostart.py
 
+# Environment
+.env
+.env.local
+.env.*.local
+
 # IDE
 .vscode/
 .idea/

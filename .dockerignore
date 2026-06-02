@@ -1,0 +1,86 @@
+# Docker ignore — exclude files NOT needed in the image
+
+# Secrets and runtime data
+memory/
+desktop/
+listener.log
+*.log
+Tool_List.txt
+
+# Sensitive configs
+config/api_keys.json
+config/telegram.json
+config/obsidian.json
+config/email.json
+config/devices.json
+config/workspace-jarvis.code-workspace
+
+# Environment (template IS shipped, but .env is not)
+.env
+.env.*
+
+# Personal launchers / clients
+start.bat
+start_listener.vbs
+remote_client.py
+or_client.py
+setup.py
+setup_autostart.py
+or_client.py
+stetige-verbesserungen.agent.md
+
+# Python build/cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.bak
+*.swp
+
+# Virtual envs
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Build
+build/
+dist/
+*.spec
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Tests
+tests/
+
+# Docker itself (don't recursively include)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentation (not needed at runtime)
+docs/
+*.md
+
+# CI
+.github/
+
+# Backup files
+*.bak

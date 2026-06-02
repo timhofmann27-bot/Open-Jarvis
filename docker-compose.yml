@@ -1,0 +1,127 @@
+# Open-Jarvis Docker Compose
+# Runs the full JARVIS backend stack:
+#   - JARVIS (dashboard + memory + MCP bridge, headless)
+#   - Ollama (local LLM server)
+#   - example MCP servers (optional, commented out)
+#
+# Usage:
+#   cp .env.example .env
+#   # Edit .env with your API keys
+#   docker compose up
+#   # Open http://localhost:8080 for dashboard
+#   # On Windows host: run "python main.py" for voice UI
+
+name: open-jarvis
+
+services:
+  # ── Main JARVIS service (headless) ──────────────────────────────
+  jarvis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: open-jarvis:latest
+    container_name: open-jarvis
+    restart: unless-stopped
+    ports:
+      - "${DASHBOARD_PORT:-8080}:8080"
+      - "${TV_PORT:-8765}:8765"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-tinyllama}
+      - JARVIS_LOCAL_MODE=${JARVIS_LOCAL_MODE:-1}
+      - JARVIS_HEADLESS=1
+      - DASHBOARD_PORT=8080
+      - TV_PORT=8765
+      - TZ=${TZ:-UTC}
+    volumes:
+      - jarvis-memory:/app/memory
+      - jarvis-config:/app/config
+      # Mount your host config dir if you want to use existing configs:
+      # - ./config:/app/config:ro
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - jarvis-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ── Ollama: Local LLM server ────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: jarvis-ollama
+    restart: unless-stopped
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_HOST=0.0.0.0:11434
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - jarvis-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    # Pre-pull a model on first start. Uncomment to enable.
+    # entrypoint: ["/bin/sh", "-c"]
+    # command: >
+    #   "ollama serve &
+    #    sleep 5 &&
+    #    ollama pull tinyllama &&
+    #    wait"
+
+  # ── Optional: MCP Filesystem server (uncomment to enable) ──────
+  # filesystem-mcp:
+  #   image: mcp/filesystem:latest
+  #   container_name: jarvis-mcp-filesystem
+  #   volumes:
+  #     - /path/on/host:/data
+  #   networks:
+  #     - jarvis-net
+  #   profiles: ["mcp"]
+
+  # ── Optional: MCP GitHub server (uncomment to enable) ──────────
+  # github-mcp:
+  #   image: mcp/github:latest
+  #   container_name: jarvis-mcp-github
+  #   environment:
+  #     - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_TOKEN}
+  #   networks:
+  #     - jarvis-net
+  #   profiles: ["mcp"]
+
+  # ── Optional: Web UI (nginx serving dashboard) ─────────────────
+  # webui:
+  #   image: nginx:alpine
+  #   container_name: jarvis-webui
+  #   ports:
+  #     - "8090:80"
+  #   volumes:
+  #     - ./web_ui:/usr/share/nginx/html:ro
+  #   depends_on:
+  #     - jarvis
+  #   networks:
+  #     - jarvis-net
+  #   profiles: ["webui"]
+
+volumes:
+  jarvis-memory:
+    name: open-jarvis-memory
+  jarvis-config:
+    name: open-jarvis-config
+  ollama-data:
+    name: open-jarvis-ollama
+
+networks:
+  jarvis-net:
+    name: open-jarvis-net
+    driver: bridge
